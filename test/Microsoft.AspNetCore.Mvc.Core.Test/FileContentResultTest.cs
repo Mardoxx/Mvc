@@ -1,7 +1,9 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -11,6 +13,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc
@@ -47,6 +50,31 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         [Fact]
+        public void Constructor_SetsRangeProcessingParameters()
+        {
+            // Arrange
+            var fileContents = new byte[0];
+            var contentType = "text/plain";
+            var expectedMediaType = contentType;
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+
+            // Act
+            var result = new FileContentResult(
+                fileContents: fileContents,
+                contentType: new MediaTypeHeaderValue(contentType),
+                enableRangeProcessing: true,
+                lastModified: lastModified,
+                entityTag: entityTag);
+
+            // Assert
+            Assert.True(result.EnableRangeProcessing);
+            Assert.Equal(lastModified, result.LastModified);
+            Assert.Equal(entityTag, result.EntityTag);
+            MediaTypeAssert.Equal(expectedMediaType, result.ContentType);
+        }
+
+        [Fact]
         public async Task WriteFileAsync_CopiesBuffer_ToOutputStream()
         {
             // Arrange
@@ -66,6 +94,94 @@ namespace Microsoft.AspNetCore.Mvc
 
             // Assert
             Assert.Equal(buffer, outStream.ToArray());
+        }
+
+        [Theory]
+        [InlineData(0, 4, "Hello", 5)]
+        [InlineData(6, 10, "World", 5)]
+        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        {
+            // Arrange            
+            var contentType = "text/plain";
+            var expectedMediaType = contentType;
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            var byteArray = Encoding.ASCII.GetBytes("Hello World");
+
+            var result = new FileContentResult(
+                fileContents: byteArray,
+                contentType: new MediaTypeHeaderValue(contentType),
+                enableRangeProcessing: true,
+                lastModified: lastModified,
+                entityTag: entityTag);
+
+            var httpContext = GetHttpContext();
+            httpContext.Request.GetTypedHeaders().Range = new RangeHeaderValue(start, end);
+            httpContext.Request.Method = "GET";
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(start, end, byteArray.Length);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.Equal(lastModified.ToString("R"), httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(entityTag.ToString(), httpResponse.Headers[HeaderNames.ETag]);
+            Assert.Equal(contentLength, httpResponse.ContentLength);
+            Assert.Equal(expectedString, body);
+        }
+
+        [Theory]
+        [InlineData("11-0")]
+        [InlineData("1-4, 5-11")]
+        public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
+        {
+            // Arrange            
+            var contentType = "text/plain";
+            var expectedMediaType = contentType;
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            var byteArray = Encoding.ASCII.GetBytes("Hello World");
+
+            var result = new FileContentResult(
+                fileContents: byteArray,
+                contentType: new MediaTypeHeaderValue(contentType),
+                enableRangeProcessing: true,
+                lastModified: lastModified,
+                entityTag: entityTag);
+
+            var httpContext = GetHttpContext();
+            httpContext.Request.Headers[HeaderNames.Range] = rangeString;
+            httpContext.Request.Method = "GET";
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(byteArray.Length);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
+            Assert.Empty(httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ETag]);
+            Assert.Equal(byteArray.Length, httpResponse.ContentLength);
+            Assert.Empty(body);
         }
 
         [Fact]

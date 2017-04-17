@@ -3,8 +3,6 @@
 
 using System;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
@@ -52,6 +50,48 @@ namespace Microsoft.AspNetCore.Mvc
 
             FileContents = fileContents;
         }
+
+        /// <summary>
+        /// Creates a new <see cref="FileContentResult"/> instance with
+        /// the provided <paramref name="fileContents"/> and the
+        /// provided <paramref name="contentType"/>.
+        /// </summary>
+        /// <param name="fileContents">The bytes that represent the file contents.</param>
+        /// <param name="contentType">The Content-Type header of the response.</param>
+        /// <param name="enableRangeProcessing">If set to true, Range request header is parsed.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <see cref="FileContentResult"/>
+        /// was last modified.</param>
+        /// <param name="entityTag">The entity tag associated with the <see cref="FileContentResult"/>.</param>
+        public FileContentResult(
+            byte[] fileContents,
+            MediaTypeHeaderValue contentType,
+            bool enableRangeProcessing,
+            DateTimeOffset lastModified,
+            EntityTagHeaderValue entityTag)
+            : base(contentType?.ToString(), enableRangeProcessing)
+        {
+            if (fileContents == null)
+            {
+                throw new ArgumentNullException(nameof(fileContents));
+            }
+
+            FileContents = fileContents;
+            if (enableRangeProcessing)
+            {
+                LastModified = lastModified;
+                EntityTag = entityTag;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the last modified information associated with the <see cref="FileStreamResult"/>.
+        /// </summary>
+        public DateTimeOffset LastModified { get; set; }
+
+        /// <summary>
+        /// Gets or sets the etag associated with the <see cref="FileStreamResult"/>.
+        /// </summary>
+        public EntityTagHeaderValue EntityTag { get; set; }
 
         /// <summary>
         /// Gets or sets the file contents.

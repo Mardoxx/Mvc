@@ -49,6 +49,48 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
+        /// Creates a new <see cref="FileStreamResult"/> instance with
+        /// the provided <paramref name="fileStream"/> and the
+        /// provided <paramref name="contentType"/>.
+        /// </summary>
+        /// <param name="fileStream">The stream with the file.</param>
+        /// <param name="contentType">The Content-Type header of the response.</param>
+        /// <param name="enableRangeProcessing">If set to true, Range request header is parsed.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <see cref="FileStreamResult"/>
+        /// was last modified.</param>
+        /// <param name="entityTag">The entity tag associated with the <see cref="FileStreamResult"/>.</param>
+        public FileStreamResult(
+            Stream fileStream,
+            MediaTypeHeaderValue contentType,
+            bool enableRangeProcessing,
+            DateTimeOffset lastModified,
+            EntityTagHeaderValue entityTag)
+            : base(contentType?.ToString(), enableRangeProcessing)
+        {
+            if (fileStream == null)
+            {
+                throw new ArgumentNullException(nameof(fileStream));
+            }
+
+            FileStream = fileStream;
+            if (enableRangeProcessing)
+            {
+                LastModified = lastModified;
+                EntityTag = entityTag;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the last modified information associated with the <see cref="FileStreamResult"/>.
+        /// </summary>
+        public DateTimeOffset LastModified { get; set; }
+
+        /// <summary>
+        /// Gets or sets the etag associated with the <see cref="FileStreamResult"/>.
+        /// </summary>
+        public EntityTagHeaderValue EntityTag { get; set; }
+
+        /// <summary>
         /// Gets or sets the stream with the file that will be sent back as the response.
         /// </summary>
         public Stream FileStream

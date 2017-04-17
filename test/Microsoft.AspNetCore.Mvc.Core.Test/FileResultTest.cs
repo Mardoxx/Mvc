@@ -27,6 +27,18 @@ namespace Microsoft.AspNetCore.Mvc
             var result = new EmptyFileResult("text/plain");
 
             // Assert
+            Assert.False(result.EnableRangeProcessing);
+            Assert.Equal("text/plain", result.ContentType.ToString());
+        }
+
+        [Fact]
+        public void Constructor_SetsContentTypeAndRangeProcessing()
+        {
+            // Act
+            var result = new EmptyFileResult("text/plain", true);
+
+            // Assert
+            Assert.True(result.EnableRangeProcessing);
             Assert.Equal("text/plain", result.ContentType.ToString());
         }
 
@@ -283,7 +295,12 @@ namespace Microsoft.AspNetCore.Mvc
             }
 
             public EmptyFileResult(string contentType)
-                : base(contentType)
+                : base(contentType, enableRangeProcessing: false)
+            {
+            }
+
+            public EmptyFileResult(string contentType, bool enableRangeProcessing)
+                : base(contentType, enableRangeProcessing)
             {
             }
 

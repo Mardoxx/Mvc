@@ -19,8 +19,38 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         protected void SetHeadersAndLog(ActionContext context, FileResult result)
         {
             SetContentType(context, result);
-            SetContentDispositionHeader(context, result);
+            SetContentDispositionHeader(context, result);            
             Logger.FileResultExecuting(result.FileDownloadName);
+        }
+
+        private long SetContentLength(ActionContext context, RangeItemHeaderValue range)
+        {
+            long start = range.From.Value;
+            long end = range.To.Value;
+            long length = end - start + 1;
+            var response = context.HttpContext.Response;
+            response.ContentLength = length;
+            return length;
+        }
+
+        protected long SetRangeHeaders(ActionContext context, FileResult result, RangeItemHeaderValue range)
+        {
+            var method = context.HttpContext.Request.Method;
+            var isGet = string.Equals("GET", method, StringComparison.OrdinalIgnoreCase);
+            if (!isGet)
+            {
+                result.EnableRangeProcessing = false;
+            }
+
+            if (result.EnableRangeProcessing)
+            {
+                var response = context.HttpContext.Response;
+                response.Headers[HeaderNames.AcceptRanges] = "bytes";
+                long rangeLength = SetContentLength(context, range);
+                return rangeLength;
+            }
+
+            return default(long);
         }
 
         private void SetContentDispositionHeader(ActionContext context, FileResult result)

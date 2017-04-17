@@ -2,8 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Mvc
 {
@@ -31,9 +29,31 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
+        /// Creates a new <see cref="FileResult"/> instance with
+        /// the provided <paramref name="contentType"/>.
+        /// </summary>
+        /// <param name="contentType">The Content-Type header of the response.</param>
+        /// <param name="enableRangeProcessing">If set to true, Range request header is parsed.</param>
+        protected FileResult(string contentType, bool enableRangeProcessing)
+        {
+            if (contentType == null)
+            {
+                throw new ArgumentNullException(nameof(contentType));
+            }
+
+            ContentType = contentType;
+            EnableRangeProcessing = enableRangeProcessing;
+        }
+
+        /// <summary>
         /// Gets the Content-Type header for the response.
         /// </summary>
         public string ContentType { get; }
+
+        /// <summary>
+        /// Gets or sets the value that determines if Range requests are handled.
+        /// </summary>
+        public bool EnableRangeProcessing { get; set; }
 
         /// <summary>
         /// Gets the file name that will be used in the Content-Disposition header of the response.
