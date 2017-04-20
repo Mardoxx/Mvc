@@ -176,12 +176,12 @@ namespace Microsoft.AspNetCore.Mvc
 
             // Assert
             Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
-            Assert.Empty(httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
-            Assert.Empty(httpResponse.Headers[HeaderNames.LastModified]);
-            Assert.Empty(httpResponse.Headers[HeaderNames.ETag]);
+            Assert.Equal(lastModified.ToString("R"), httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(entityTag.ToString(), httpResponse.Headers[HeaderNames.ETag]);
             Assert.Equal(byteArray.Length, httpResponse.ContentLength);
-            Assert.Empty(body);
+            Assert.Equal("Hello World", body);
         }
 
         [Fact]

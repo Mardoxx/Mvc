@@ -63,8 +63,8 @@ namespace Microsoft.AspNetCore.Mvc
             Stream fileStream,
             MediaTypeHeaderValue contentType,
             bool enableRangeProcessing,
-            DateTimeOffset lastModified,
-            EntityTagHeaderValue entityTag)
+            DateTimeOffset? lastModified,
+            EntityTagHeaderValue entityTag = null)
             : base(contentType?.ToString(), enableRangeProcessing)
         {
             if (fileStream == null)
@@ -73,17 +73,14 @@ namespace Microsoft.AspNetCore.Mvc
             }
 
             FileStream = fileStream;
-            if (enableRangeProcessing)
-            {
-                LastModified = lastModified;
-                EntityTag = entityTag;
-            }
+            LastModified = lastModified;
+            EntityTag = entityTag;
         }
 
         /// <summary>
         /// Gets or sets the last modified information associated with the <see cref="FileStreamResult"/>.
         /// </summary>
-        public DateTimeOffset LastModified { get; set; }
+        public DateTimeOffset? LastModified { get; set; }
 
         /// <summary>
         /// Gets or sets the etag associated with the <see cref="FileStreamResult"/>.

@@ -21,18 +21,29 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         }
 
         public Task ExecuteAsync(ActionContext context, FileStreamResult result)
-        {
-            RangeItemHeaderValue range = new RangeItemHeaderValue(0, 0);
+        {            
             long rangeLength = default(long);
+
+            var range = new RangeItemHeaderValue(0, 0);
             if (result.EnableRangeProcessing)
             {
-                range = SetContentRangeAndStatusCode(
-                    context,
-                    result.LastModified,
-                    result.EntityTag,
-                    result.FileStream.Length);
+                ComputeIfMatch(context, result, result.LastModified.Value, result.EntityTag);
+                ComputeIfModifiedSince(context, result.LastModified.Value);
+                if (result.LastModified.HasValue)
+                {
+                    range = SetContentRangeAndStatusCode(
+                        context,
+                        result.FileStream.Length,
+                        result.LastModified.Value,
+                        result.EntityTag);
+                }
 
-                rangeLength = (range == null) ? 0 : SetRangeHeaders(context, result, range);
+                else
+                {
+                    range = SetContentRangeAndStatusCode(context, result.FileStream.Length);
+                }
+
+                rangeLength = SetRangeHeaders(context, result, range);
             }
 
             SetHeadersAndLog(context, result);
@@ -46,12 +57,12 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             using (result.FileStream)
             {
-                if (!result.EnableRangeProcessing)
+                if (!result.EnableRangeProcessing || range == null)
                 {
                     await result.FileStream.CopyToAsync(outputStream, BufferSize);
                 }
 
-                else if (range == null || rangeLength == 0)
+                else if (rangeLength == 0)
                 {
                     return;
                 }

@@ -17,17 +17,28 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, FileContentResult result)
         {
-            RangeItemHeaderValue range = new RangeItemHeaderValue(0, 0);
             long rangeLength = default(long);
+
+            var range = new RangeItemHeaderValue(0, 0);
             if (result.EnableRangeProcessing)
             {
-                range = SetContentRangeAndStatusCode(
-                    context,
-                    result.LastModified,
-                    result.EntityTag,
-                    result.FileContents.Length);
+                if (result.LastModified.HasValue)
+                {
+                    ComputeIfMatch(context, result, result.LastModified.Value, result.EntityTag);
+                    ComputeIfModifiedSince(context, result.LastModified.Value);
+                    range = SetContentRangeAndStatusCode(
+                        context,
+                        result.FileContents.Length,
+                        result.LastModified.Value,
+                        result.EntityTag);
+                }
 
-                rangeLength = (range == null) ? 0 : SetRangeHeaders(context, result, range);
+                else
+                {
+                    range = SetContentRangeAndStatusCode(context, result.FileContents.Length);
+                }
+
+                rangeLength = SetRangeHeaders(context, result, range);
             }
 
             SetHeadersAndLog(context, result);
@@ -39,31 +50,19 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var response = context.HttpContext.Response;
             var outputStream = response.Body;
 
-            if (!result.EnableRangeProcessing)
+            if (!result.EnableRangeProcessing || range == null)
             {
                 return response.Body.WriteAsync(result.FileContents, offset: 0, count: result.FileContents.Length);
             }
 
-            else if (range == null || rangeLength == 0)
+            else if (rangeLength == 0)
             {
                 return Task.CompletedTask;
             }
 
             else
             {
-                try
-                {
-                    return response.Body.WriteAsync(result.FileContents, offset: (int)range.From.Value, count: (int)rangeLength);
-                }
-
-                catch (OperationCanceledException ex)
-                {
-                    // Don't throw this exception, it's most likely caused by the client disconnecting.
-                    // However, if it was cancelled for any other reason we need to prevent empty responses.
-                    context.HttpContext.Abort();
-                    return Task.FromException(ex);
-                }
-
+                return response.Body.WriteAsync(result.FileContents, offset: (int)range.From.Value, count: (int)rangeLength);
             }
         }
     }
