@@ -23,14 +23,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         public Task ExecuteAsync(ActionContext context, FileStreamResult result)
         {
             var fileLength = 0L;
-            var rangeInfo = new(RangeItemHeaderValue range, long rangeLength)?();
+            RangeItemHeaderValue range;
+            long rangeLength;
             if (result.FileStream.CanSeek)
             {
                 fileLength = result.FileStream.Length;
             }
             if (result.LastModified.HasValue)
             {
-                rangeInfo = SetHeadersAndLog(
+                (range, rangeLength) = SetHeadersAndLog(
                     context,
                     result,
                     fileLength,
@@ -39,18 +40,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                rangeInfo = SetHeadersAndLog(
+                (range, rangeLength) = SetHeadersAndLog(
                     context,
                     result,
                     fileLength);
             }
 
-            if (rangeInfo.HasValue)
-            {
-                return WriteFileAsync(context, result, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
-            }
-
-            return WriteFileAsync(context, result, null, 0);
+            return WriteFileAsync(context, result, range, rangeLength);
         }
 
         private static async Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)

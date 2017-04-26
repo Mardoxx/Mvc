@@ -22,7 +22,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected ILogger Logger { get; }
 
-        protected (RangeItemHeaderValue range, long rangeLength)? SetHeadersAndLog(ActionContext context, FileResult result, long fileLength, DateTimeOffset? lastModified = null, EntityTagHeaderValue etag = null)
+        protected (RangeItemHeaderValue range, long rangeLength) SetHeadersAndLog(ActionContext context, FileResult result, long fileLength, DateTimeOffset? lastModified = null, EntityTagHeaderValue etag = null)
         {
             SetContentType(context, result);
             SetContentDispositionHeader(context, result);
@@ -43,7 +43,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 }
             }
 
-            return null;
+            return (null, 0);
         }
 
         private void SetContentType(ActionContext context, FileResult result)

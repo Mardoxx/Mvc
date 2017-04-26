@@ -17,10 +17,11 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, FileContentResult result)
         {
-            var rangeInfo = new(RangeItemHeaderValue range, long rangeLength)?();
+            RangeItemHeaderValue range;
+            long rangeLength;
             if (result.LastModified.HasValue)
             {
-                rangeInfo = SetHeadersAndLog(
+                (range, rangeLength) = SetHeadersAndLog(
                     context,
                     result,
                     result.FileContents.Length,
@@ -29,18 +30,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                rangeInfo = SetHeadersAndLog(
+                (range, rangeLength) = SetHeadersAndLog(
                     context,
                     result,
                     result.FileContents.Length);
             }
 
-            if (rangeInfo.HasValue)
-            {
-                return WriteFileAsync(context, result, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
-            }
-
-            return WriteFileAsync(context, result, null, 0);
+            return WriteFileAsync(context, result, range, rangeLength);
         }
 
         private static Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue range, long rangeLength)

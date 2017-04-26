@@ -26,21 +26,16 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
         {
-            var rangeInfo = new(RangeItemHeaderValue range, long rangeLength)?();
-
+            RangeItemHeaderValue range;
+            long rangeLength;
             var fileInfo = GetFileInfo(result.FileName);
-            rangeInfo = SetHeadersAndLog(
+            (range, rangeLength) = SetHeadersAndLog(
                 context,
                 result,
                 fileInfo.Length,
                 fileInfo.LastModified);
 
-            if (rangeInfo.HasValue)
-            {
-                return WriteFileAsync(context, result, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
-            }
-
-            return WriteFileAsync(context, result, null, 0);
+            return WriteFileAsync(context, result, range, rangeLength);
         }
 
         private async Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
