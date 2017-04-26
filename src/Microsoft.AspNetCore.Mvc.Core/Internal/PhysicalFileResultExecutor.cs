@@ -5,9 +5,13 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Core;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Internal
 {
@@ -22,13 +26,27 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
         {
-            SetHeadersAndLog(context, result);
-            return WriteFileAsync(context, result);
+            var rangeInfo = new(RangeItemHeaderValue range, long rangeLength)?();
+
+            var fileInfo = GetFileInfo(result.FileName);
+            rangeInfo = SetHeadersAndLog(
+                context,
+                result,
+                fileInfo.Length,
+                fileInfo.LastModified);
+
+            if (rangeInfo.HasValue)
+            {
+                return WriteFileAsync(context, result, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
+            }
+
+            return WriteFileAsync(context, result, null, 0);
         }
 
-        private async Task WriteFileAsync(ActionContext context, PhysicalFileResult result)
+        private async Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
+            var fileStream = GetFileStream(result.FileName);
 
             if (!Path.IsPathRooted(result.FileName))
             {
@@ -44,13 +62,30 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     count: null,
                     cancellation: default(CancellationToken));
             }
-            else
+            else if (range == null || !fileStream.CanSeek)
             {
-                var fileStream = GetFileStream(result.FileName);
-
                 using (fileStream)
                 {
                     await fileStream.CopyToAsync(response.Body, DefaultBufferSize);
+                }
+            }
+            else if (rangeLength == 0)
+            {
+                return;
+            }
+            else
+            {
+                try
+                {
+                    fileStream.Seek(range.From.Value, SeekOrigin.Begin);
+                    await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
+                }
+
+                catch (OperationCanceledException)
+                {
+                    // Don't throw this exception, it's most likely caused by the client disconnecting.
+                    // However, if it was cancelled for any other reason we need to prevent empty responses.
+                    context.HttpContext.Abort();
                 }
             }
         }
@@ -69,6 +104,23 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     FileShare.ReadWrite,
                     DefaultBufferSize,
                     FileOptions.Asynchronous | FileOptions.SequentialScan);
+        }
+
+        protected virtual FileInfo GetFileInfo(string path)
+        {
+            var fileInfo = new System.IO.FileInfo(path);
+            return new FileInfo
+            {
+                Length = fileInfo.Length,
+                LastModified = fileInfo.LastWriteTimeUtc,
+            };
+        }
+
+        protected class FileInfo
+        {
+            public long Length { get; set; }
+
+            public DateTimeOffset LastModified { get; set; }
         }
     }
 }

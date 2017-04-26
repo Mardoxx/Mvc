@@ -58,17 +58,15 @@ namespace Microsoft.AspNetCore.Mvc
         /// </summary>
         /// <param name="fileContents">The bytes that represent the file contents.</param>
         /// <param name="contentType">The Content-Type header of the response.</param>
-        /// <param name="enableRangeProcessing">If set to true, Range request header is parsed.</param>
         /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <see cref="FileContentResult"/>
         /// was last modified.</param>
         /// <param name="entityTag">The entity tag associated with the <see cref="FileContentResult"/>.</param>
         public FileContentResult(
             byte[] fileContents,
-            MediaTypeHeaderValue contentType,
-            bool enableRangeProcessing,
+            string contentType,
             DateTimeOffset? lastModified,
             EntityTagHeaderValue entityTag = null)
-            : base(contentType?.ToString(), enableRangeProcessing)
+            : base(contentType?.ToString())
         {
             if (fileContents == null)
             {

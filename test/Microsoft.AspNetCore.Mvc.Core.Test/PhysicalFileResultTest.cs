@@ -14,8 +14,10 @@ using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.TestCommon;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Net.Http.Headers;
 using Moq;
 using Xunit;
 
@@ -50,6 +52,83 @@ namespace Microsoft.AspNetCore.Mvc
             // Assert
             Assert.Equal(path, result.FileName);
             MediaTypeAssert.Equal(expectedMediaType, result.ContentType);
+        }
+
+        [Theory]
+        [InlineData(0, 3, "File", 4)]
+        [InlineData(8, 13, "Result", 6)]
+        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        {
+            // Arrange            
+            var contentType = "text/plain";
+            var expectedMediaType = contentType;
+
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+
+            var httpContext = GetHttpContext();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.Range = new RangeHeaderValue(start, end);
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(start, end, 32);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(contentLength, httpResponse.ContentLength);
+            Assert.Equal(expectedString, body);
+        }
+
+        [Theory]
+        [InlineData("0-5")]
+        [InlineData("bytes = 11-0")]
+        [InlineData("bytes = 1-4, 5-11")]
+        public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
+        {
+            // Arrange            
+            var contentType = "text/plain";
+            var expectedMediaType = contentType;
+
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+
+            var httpContext = GetHttpContext();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            httpContext.Request.Headers[HeaderNames.Range] = rangeString;
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(32);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(32, httpResponse.ContentLength);
+            Assert.Equal("FilePathResultTestFile contents�", body);
         }
 
         [Fact]
@@ -235,6 +314,15 @@ namespace Microsoft.AspNetCore.Mvc
                 {
                     return new MemoryStream(Encoding.UTF8.GetBytes("FilePathResultTestFile contents�"));
                 }
+            }
+
+            protected override FileInfo GetFileInfo(string path)
+            {
+                return new FileInfo
+                {
+                    Length = 32,
+                    LastModified = DateTimeOffset.Now,
+                };
             }
         }
 

@@ -6,10 +6,12 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Internal
 {
@@ -31,22 +33,26 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, VirtualFileResult result)
         {
-            SetHeadersAndLog(context, result);
-            return WriteFileAsync(context, result);
-        }
+            var fileInfo = GetFileInformation(result);
 
-        private async Task WriteFileAsync(ActionContext context, VirtualFileResult result)
-        {
-            var response = context.HttpContext.Response;
-            var fileProvider = GetFileProvider(result);
+            var rangeInfo = SetHeadersAndLog(
+                context,
+                result,
+                fileInfo.Length,
+                fileInfo.LastModified);
 
-            var normalizedPath = result.FileName;
-            if (normalizedPath.StartsWith("~", StringComparison.Ordinal))
+            if (rangeInfo.HasValue)
             {
-                normalizedPath = normalizedPath.Substring(1);
+                return WriteFileAsync(context, result, fileInfo, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
             }
 
-            var fileInfo = fileProvider.GetFileInfo(normalizedPath);
+            return WriteFileAsync(context, result, fileInfo, null, 0);
+        }
+
+        private async Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
+        {
+            var response = context.HttpContext.Response;
+            var fileStream = GetFileStream(fileInfo);
             if (fileInfo.Exists)
             {
                 var physicalPath = fileInfo.PhysicalPath;
@@ -59,12 +65,30 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                         count: null,
                         cancellation: default(CancellationToken));
                 }
-                else
+                else if (range == null || !fileStream.CanSeek)
                 {
-                    var fileStream = GetFileStream(fileInfo);
                     using (fileStream)
                     {
                         await fileStream.CopyToAsync(response.Body, DefaultBufferSize);
+                    }
+                }
+                else if (rangeLength == 0)
+                {
+                    return;
+                }
+                else
+                {
+                    try
+                    {
+                        fileStream.Seek(range.From.Value, SeekOrigin.Begin);
+                        await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
+                    }
+
+                    catch (OperationCanceledException)
+                    {
+                        // Don't throw this exception, it's most likely caused by the client disconnecting.
+                        // However, if it was cancelled for any other reason we need to prevent empty responses.
+                        context.HttpContext.Abort();
                     }
                 }
             }
@@ -73,6 +97,20 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 throw new FileNotFoundException(
                     Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
             }
+        }
+
+        private IFileInfo GetFileInformation(VirtualFileResult result)
+        {
+            var fileProvider = GetFileProvider(result);
+
+            var normalizedPath = result.FileName;
+            if (normalizedPath.StartsWith("~", StringComparison.Ordinal))
+            {
+                normalizedPath = normalizedPath.Substring(1);
+            }
+
+            var fileInfo = fileProvider.GetFileInfo(normalizedPath);
+            return fileInfo;
         }
 
         private IFileProvider GetFileProvider(VirtualFileResult result)

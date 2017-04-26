@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Net.Http.Headers;
 using Moq;
 using Xunit;
 
@@ -51,8 +52,105 @@ namespace Microsoft.AspNetCore.Mvc
             // Assert
             Assert.Equal(path, result.FileName);
             MediaTypeAssert.Equal(expectedMediaType, result.ContentType);
-
         }
+
+        [Theory]
+        [InlineData(0, 3, "File", 4)]
+        [InlineData(8, 13, "Result", 6)]
+        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        {
+            // Arrange            
+            var path = Path.GetFullPath("helllo.txt");
+            var contentType = "text/plain; charset=us-ascii; p1=p1-value";
+            var expectedMediaType = contentType;
+
+            var result = new TestVirtualFileResult(path, contentType);
+            var appEnvironment = new Mock<IHostingEnvironment>();
+            appEnvironment.Setup(app => app.WebRootFileProvider)
+                .Returns(GetFileProvider(path));
+
+            var httpContext = GetHttpContext();
+            httpContext.Response.Body = new MemoryStream();
+            httpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(appEnvironment.Object)
+                .AddTransient<TestVirtualFileResultExecutor>()
+                .AddTransient<ILoggerFactory, LoggerFactory>()
+                .BuildServiceProvider();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.Range = new RangeHeaderValue(start, end);
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(start, end, 32);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(contentLength, httpResponse.ContentLength);
+            Assert.Equal(expectedString, body);
+        }
+
+        [Theory]
+        [InlineData("0-5")]
+        [InlineData("bytes = 11-0")]
+        [InlineData("bytes = 1-4, 5-11")]
+        public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
+        {
+            // Arrange
+            var path = Path.GetFullPath("helllo.txt");
+            var contentType = "text/plain; charset=us-ascii; p1=p1-value";
+            var expectedMediaType = contentType;
+
+            var result = new TestVirtualFileResult(path, contentType);
+            var appEnvironment = new Mock<IHostingEnvironment>();
+            appEnvironment.Setup(app => app.WebRootFileProvider)
+                .Returns(GetFileProvider(path));
+
+            var httpContext = GetHttpContext();
+            httpContext.Response.Body = new MemoryStream();
+            httpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(appEnvironment.Object)
+                .AddTransient<TestVirtualFileResultExecutor>()
+                .AddTransient<ILoggerFactory, LoggerFactory>()
+                .BuildServiceProvider();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            httpContext.Request.Headers[HeaderNames.Range] = rangeString;
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            var contentRange = new ContentRangeHeaderValue(32);
+
+            // Assert
+            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(32, httpResponse.ContentLength);
+            Assert.Equal("FilePathResultTestFile contents¡", body);
+        }
+
         [Fact]
         public async Task ExecuteResultAsync_FallsBackToWebRootFileProvider_IfNoFileProviderIsPresent()
         {
@@ -325,7 +423,9 @@ namespace Microsoft.AspNetCore.Mvc
         private static IFileProvider GetFileProvider(string path)
         {
             var fileInfo = new Mock<IFileInfo>();
+            fileInfo.SetupGet(fi => fi.Length).Returns(32);
             fileInfo.SetupGet(fi => fi.Exists).Returns(true);
+            fileInfo.SetupGet(fi => fi.LastModified).Returns(DateTimeOffset.MinValue);
             fileInfo.SetupGet(fi => fi.PhysicalPath).Returns(path);
             var fileProvider = new Mock<IFileProvider>();
             fileProvider.Setup(fp => fp.GetFileInfo(path))
@@ -355,7 +455,7 @@ namespace Microsoft.AspNetCore.Mvc
         private class TestVirtualFileResultExecutor : VirtualFileResultExecutor
         {
             public TestVirtualFileResultExecutor(ILoggerFactory loggerFactory, IHostingEnvironment hostingEnvironment)
-                : base(loggerFactory,hostingEnvironment)
+                : base(loggerFactory, hostingEnvironment)
             {
             }
 

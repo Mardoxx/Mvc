@@ -50,7 +50,7 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         [Fact]
-        public void Constructor_SetsRangeProcessingParameters()
+        public void Constructor_SetsLastModifiedAndEtag()
         {
             // Arrange
             var fileContents = new byte[0];
@@ -62,13 +62,11 @@ namespace Microsoft.AspNetCore.Mvc
             // Act
             var result = new FileContentResult(
                 fileContents: fileContents,
-                contentType: new MediaTypeHeaderValue(contentType),
-                enableRangeProcessing: true,
+                contentType: contentType,
                 lastModified: lastModified,
                 entityTag: entityTag);
 
             // Assert
-            Assert.True(result.EnableRangeProcessing);
             Assert.Equal(lastModified, result.LastModified);
             Assert.Equal(entityTag, result.EntityTag);
             MediaTypeAssert.Equal(expectedMediaType, result.ContentType);
@@ -110,14 +108,19 @@ namespace Microsoft.AspNetCore.Mvc
 
             var result = new FileContentResult(
                 fileContents: byteArray,
-                contentType: new MediaTypeHeaderValue(contentType),
-                enableRangeProcessing: true,
+                contentType: contentType,
                 lastModified: lastModified,
                 entityTag: entityTag);
 
             var httpContext = GetHttpContext();
-            httpContext.Request.GetTypedHeaders().Range = new RangeHeaderValue(start, end);
-            httpContext.Request.Method = "GET";
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.Range = new RangeHeaderValue(start, end);
+            requestHeaders.IfMatch = new[]
+            {
+                new EntityTagHeaderValue("\"Etag\""),
+            };
+
+            httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
 
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
@@ -141,8 +144,9 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         [Theory]
-        [InlineData("11-0")]
-        [InlineData("1-4, 5-11")]
+        [InlineData("0-5")]
+        [InlineData("bytes = 11-0")]
+        [InlineData("bytes = 1-4, 5-11")]
         public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
         {
             // Arrange            
@@ -154,14 +158,19 @@ namespace Microsoft.AspNetCore.Mvc
 
             var result = new FileContentResult(
                 fileContents: byteArray,
-                contentType: new MediaTypeHeaderValue(contentType),
-                enableRangeProcessing: true,
+                contentType: contentType,
                 lastModified: lastModified,
                 entityTag: entityTag);
 
             var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
             httpContext.Request.Headers[HeaderNames.Range] = rangeString;
-            httpContext.Request.Method = "GET";
+            requestHeaders.IfMatch = new[]
+            {
+                new EntityTagHeaderValue("\"Etag\""),
+            };
+
+            httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
 
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());

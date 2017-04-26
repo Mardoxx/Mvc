@@ -1163,6 +1163,37 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
+        /// Returns a file with the specified range in the given <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// </summary>
+        /// <param name="fileContents">The file contents.</param>
+        /// <param name="contentType">The Content-Type of the file.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the file was last modified.</param>
+        /// <param name="entityTag">The <see cref="EntityTagHeaderValue"/> associated with the file.</param>
+        /// <returns>The created <see cref="FileContentResult"/> for the response.</returns>
+        [NonAction]
+        public virtual FileContentResult File(byte[] fileContents, string contentType, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
+        {
+            return new FileContentResult(fileContents, contentType, lastModified, entityTag);
+        }
+
+        /// <summary>
+        /// Returns a file with the specified range in the given <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// </summary>
+        /// <param name="fileContents">The file contents.</param>
+        /// <param name="contentType">The Content-Type of the file.</param>
+        /// <param name="fileDownloadName">The suggested file name.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the file was last modified.</param>
+        /// <param name="entityTag">The <see cref="EntityTagHeaderValue"/> associated with the file.</param>
+        /// <returns>The created <see cref="FileContentResult"/> for the response.</returns>
+        [NonAction]
+        public virtual FileContentResult File(byte[] fileContents, string contentType, string fileDownloadName, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
+        {
+            return new FileContentResult(fileContents, contentType, lastModified, entityTag) { FileDownloadName = fileDownloadName };
+        }
+
+        /// <summary>
         /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>)
         /// with the specified <paramref name="contentType" /> as the Content-Type.
         /// </summary>
@@ -1188,6 +1219,37 @@ namespace Microsoft.AspNetCore.Mvc
         public virtual FileStreamResult File(Stream fileStream, string contentType, string fileDownloadName)
         {
             return new FileStreamResult(fileStream, contentType) { FileDownloadName = fileDownloadName };
+        }
+
+        /// <summary>
+        /// Returns a file with the specified range in the given <paramref name="fileStream" /> (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// </summary>
+        /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
+        /// <param name="contentType">The Content-Type of the file.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the file was last modified.</param>
+        /// <param name="entityTag">The <see cref="EntityTagHeaderValue"/> associated with the file.</param>
+        /// <returns>The created <see cref="FileStreamResult"/> for the response.</returns>
+        [NonAction]
+        public virtual FileStreamResult File(Stream fileStream, string contentType, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
+        {
+            return new FileStreamResult(fileStream, contentType, lastModified, entityTag);
+        }
+
+        /// <summary>
+        /// Returns a file with the specified range in the given <paramref name="fileStream" /> (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// </summary>
+        /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
+        /// <param name="contentType">The Content-Type of the file.</param>
+        /// <param name="fileDownloadName">The suggested file name.</param>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the file was last modified.</param>
+        /// <param name="entityTag">The <see cref="EntityTagHeaderValue"/> associated with the file.</param>
+        /// <returns>The created <see cref="FileStreamResult"/> for the response.</returns>
+        [NonAction]
+        public virtual FileStreamResult File(Stream fileStream, string contentType, string fileDownloadName, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
+        {
+            return new FileStreamResult(fileStream, contentType, lastModified, entityTag) { FileDownloadName = fileDownloadName };
         }
 
         /// <summary>

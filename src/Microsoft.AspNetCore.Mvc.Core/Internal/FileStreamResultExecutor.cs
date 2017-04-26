@@ -21,33 +21,36 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         }
 
         public Task ExecuteAsync(ActionContext context, FileStreamResult result)
-        {            
-            long rangeLength = default(long);
-
-            var range = new RangeItemHeaderValue(0, 0);
-            if (result.EnableRangeProcessing)
+        {
+            var fileLength = 0L;
+            var rangeInfo = new(RangeItemHeaderValue range, long rangeLength)?();
+            if (result.FileStream.CanSeek)
             {
-                ComputeIfMatch(context, result, result.LastModified.Value, result.EntityTag);
-                ComputeIfModifiedSince(context, result.LastModified.Value);
-                if (result.LastModified.HasValue)
-                {
-                    range = SetContentRangeAndStatusCode(
-                        context,
-                        result.FileStream.Length,
-                        result.LastModified.Value,
-                        result.EntityTag);
-                }
-
-                else
-                {
-                    range = SetContentRangeAndStatusCode(context, result.FileStream.Length);
-                }
-
-                rangeLength = SetRangeHeaders(context, result, range);
+                fileLength = result.FileStream.Length;
+            }
+            if (result.LastModified.HasValue)
+            {
+                rangeInfo = SetHeadersAndLog(
+                    context,
+                    result,
+                    fileLength,
+                    result.LastModified.Value,
+                    result.EntityTag);
+            }
+            else
+            {
+                rangeInfo = SetHeadersAndLog(
+                    context,
+                    result,
+                    fileLength);
             }
 
-            SetHeadersAndLog(context, result);
-            return WriteFileAsync(context, result, range, rangeLength);
+            if (rangeInfo.HasValue)
+            {
+                return WriteFileAsync(context, result, rangeInfo.Value.range, rangeInfo.Value.rangeLength);
+            }
+
+            return WriteFileAsync(context, result, null, 0);
         }
 
         private static async Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
@@ -57,7 +60,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             using (result.FileStream)
             {
-                if (!result.EnableRangeProcessing || range == null)
+                if (range == null)
                 {
                     await result.FileStream.CopyToAsync(outputStream, BufferSize);
                 }

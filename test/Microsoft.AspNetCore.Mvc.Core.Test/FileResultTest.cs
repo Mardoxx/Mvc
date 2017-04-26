@@ -27,18 +27,6 @@ namespace Microsoft.AspNetCore.Mvc
             var result = new EmptyFileResult("text/plain");
 
             // Assert
-            Assert.False(result.EnableRangeProcessing);
-            Assert.Equal("text/plain", result.ContentType.ToString());
-        }
-
-        [Fact]
-        public void Constructor_SetsContentTypeAndRangeProcessing()
-        {
-            // Act
-            var result = new EmptyFileResult("text/plain", true);
-
-            // Assert
-            Assert.True(result.EnableRangeProcessing);
             Assert.Equal("text/plain", result.ContentType.ToString());
         }
 
@@ -262,6 +250,133 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Equal(expectedOutput, actual);
         }
 
+        [Fact]
+        public async Task SetsAcceptRangeHeader()
+        {
+            // Arrange
+            var httpContext = GetHttpContext();
+            var actionContext = CreateActionContext(httpContext);
+
+            var result = new EmptyFileResult("application/my-type");
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            Assert.Equal("bytes", httpContext.Response.Headers[HeaderNames.AcceptRanges]);
+        }
+
+        [Theory]
+        [InlineData("\"Etag\"", "\"NotEtag\"")]
+        [InlineData("\"Etag\"", null)]
+        [InlineData(null, "\"NotEtag\"")]
+        public void ComputeConditionalHeaders_ShouldProcess(string ifMatch, string ifNoneMatch)
+        {
+            var actionContext = new ActionContext();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = HttpMethods.Get;
+            var httpRequestHeaders = httpContext.Request.GetTypedHeaders();
+            var lastModified = DateTimeOffset.UtcNow;
+            lastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0));
+            var etag = new EntityTagHeaderValue("\"Etag\"");
+
+            httpRequestHeaders.IfMatch = ifMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifMatch),
+            };
+
+            httpRequestHeaders.IfNoneMatch = ifNoneMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifNoneMatch),
+            };
+
+            httpRequestHeaders.IfUnmodifiedSince = lastModified;
+            httpRequestHeaders.IfModifiedSince = DateTimeOffset.MinValue;
+            actionContext.HttpContext = httpContext;
+            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+                actionContext,
+                httpRequestHeaders,
+                lastModified,
+                etag);
+
+            // Assert
+            Assert.True(shouldProcess);
+        }
+
+        [Theory]
+        [InlineData("\"NotEtag\"", null)]
+        [InlineData("\"Etag\"", "\"Etag\"")]
+        [InlineData(null, null)]
+        public void ComputeConditionalHeaders_ShouldNotProcess_PreconditionFailed(string ifMatch, string ifNoneMatch)
+        {
+            var actionContext = new ActionContext();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = HttpMethods.Delete;
+            var httpRequestHeaders = httpContext.Request.GetTypedHeaders();
+            var lastModified = DateTimeOffset.MinValue.AddSeconds(1);
+            var etag = new EntityTagHeaderValue("\"Etag\"");
+
+            httpRequestHeaders.IfMatch = ifMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifMatch),
+            };
+
+            httpRequestHeaders.IfNoneMatch = ifNoneMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifNoneMatch),
+            };
+
+            httpRequestHeaders.IfUnmodifiedSince = lastModified.AddSeconds(-1);
+            httpRequestHeaders.IfModifiedSince = DateTimeOffset.UtcNow;
+            actionContext.HttpContext = httpContext;
+            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+                actionContext,
+                httpRequestHeaders,
+                lastModified,
+                etag);
+
+            // Assert
+            Assert.False(shouldProcess);
+            Assert.Equal(StatusCodes.Status412PreconditionFailed, httpContext.Response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("\"Etag\"", "\"Etag\"")]
+        [InlineData("\"Etag\"", null)]
+        public void ComputeConditionalHeaders_ShouldNotProcess_NotModified(string ifMatch, string ifNoneMatch)
+        {
+            var actionContext = new ActionContext();
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Method = HttpMethods.Get;
+            var httpRequestHeaders = httpContext.Request.GetTypedHeaders();
+            var lastModified = DateTimeOffset.UtcNow;
+            lastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0));
+            var etag = new EntityTagHeaderValue("\"Etag\"");
+
+            httpRequestHeaders.IfMatch = ifMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifMatch),
+            };
+
+            httpRequestHeaders.IfNoneMatch = ifNoneMatch == null ? null : new[]
+            {
+                new EntityTagHeaderValue(ifNoneMatch),
+            };
+
+            httpRequestHeaders.IfUnmodifiedSince = lastModified.AddSeconds(-1);
+            httpRequestHeaders.IfModifiedSince = lastModified;
+            actionContext.HttpContext = httpContext;
+            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+                actionContext,
+                httpRequestHeaders,
+                lastModified,
+                etag);
+
+            // Assert
+            Assert.False(shouldProcess);
+            Assert.Equal(StatusCodes.Status304NotModified, httpContext.Response.StatusCode);
+        }
+
         private static IServiceCollection CreateServices()
         {
             var services = new ServiceCollection();
@@ -295,12 +410,7 @@ namespace Microsoft.AspNetCore.Mvc
             }
 
             public EmptyFileResult(string contentType)
-                : base(contentType, enableRangeProcessing: false)
-            {
-            }
-
-            public EmptyFileResult(string contentType, bool enableRangeProcessing)
-                : base(contentType, enableRangeProcessing)
+                : base(contentType)
             {
             }
 
@@ -314,13 +424,13 @@ namespace Microsoft.AspNetCore.Mvc
         private class EmptyFileResultExecutor : FileResultExecutorBase
         {
             public EmptyFileResultExecutor(ILoggerFactory loggerFactory)
-                :base(CreateLogger<EmptyFileResultExecutor>(loggerFactory))
+                : base(CreateLogger<EmptyFileResultExecutor>(loggerFactory))
             {
             }
 
             public Task ExecuteAsync(ActionContext context, EmptyFileResult result)
             {
-                SetHeadersAndLog(context, result);
+                SetHeadersAndLog(context, result, 0L);
                 result.WasWriteFileCalled = true;
                 return Task.FromResult(0);
             }
