@@ -6,7 +6,6 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -14,7 +13,6 @@ using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.TestCommon;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Net.Http.Headers;
@@ -57,7 +55,9 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 3, "File", 4)]
         [InlineData(8, 13, "Result", 6)]
-        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        [InlineData(null, 3, "File", 4)]
+        [InlineData(8, null, "ResultTestFile contents�", 26)]
+        public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
             // Arrange            
             var contentType = "text/plain";
@@ -72,18 +72,25 @@ namespace Microsoft.AspNetCore.Mvc
             requestHeaders.Range = new RangeHeaderValue(start, end);
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            var contentRange = new ContentRangeHeaderValue(start, end, 32);
-
-            // Assert
+            if (!start.HasValue)
+            {
+                start = 0;
+            }
+            if (!end.HasValue)
+            {
+                end = 33;
+            }
+            var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 34);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
@@ -111,23 +118,22 @@ namespace Microsoft.AspNetCore.Mvc
             httpContext.Request.Headers[HeaderNames.Range] = rangeString;
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            var contentRange = new ContentRangeHeaderValue(32);
-
-            // Assert
+            var contentRange = new ContentRangeHeaderValue(34);
             Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
-            Assert.Equal(32, httpResponse.ContentLength);
+            Assert.Equal(34, httpResponse.ContentLength);
             Assert.Equal("FilePathResultTestFile contents�", body);
         }
 
@@ -320,7 +326,7 @@ namespace Microsoft.AspNetCore.Mvc
             {
                 return new FileInfo
                 {
-                    Length = 32,
+                    Length = 34,
                     LastModified = DateTimeOffset.Now,
                 };
             }

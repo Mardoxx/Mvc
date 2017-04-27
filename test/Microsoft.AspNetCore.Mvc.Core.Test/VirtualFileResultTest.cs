@@ -57,7 +57,9 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 3, "File", 4)]
         [InlineData(8, 13, "Result", 6)]
-        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        [InlineData(null, 3, "File", 4)]
+        [InlineData(8, null, "ResultTestFile contents¡", 25)]
+        public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
             // Arrange            
             var path = Path.GetFullPath("helllo.txt");
@@ -82,18 +84,25 @@ namespace Microsoft.AspNetCore.Mvc
             requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            var contentRange = new ContentRangeHeaderValue(start, end, 32);
-
-            // Assert
+            if (!start.HasValue)
+            {
+                start = 0;
+            }
+            if (!end.HasValue)
+            {
+                end = 32;
+            }
+            var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 33);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
@@ -131,23 +140,22 @@ namespace Microsoft.AspNetCore.Mvc
             requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            var contentRange = new ContentRangeHeaderValue(32);
-
-            // Assert
+            var contentRange = new ContentRangeHeaderValue(33);
             Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
-            Assert.Equal(32, httpResponse.ContentLength);
+            Assert.Equal(33, httpResponse.ContentLength);
             Assert.Equal("FilePathResultTestFile contents¡", body);
         }
 
@@ -423,7 +431,7 @@ namespace Microsoft.AspNetCore.Mvc
         private static IFileProvider GetFileProvider(string path)
         {
             var fileInfo = new Mock<IFileInfo>();
-            fileInfo.SetupGet(fi => fi.Length).Returns(32);
+            fileInfo.SetupGet(fi => fi.Length).Returns(33);
             fileInfo.SetupGet(fi => fi.Exists).Returns(true);
             fileInfo.SetupGet(fi => fi.LastModified).Returns(DateTimeOffset.MinValue);
             fileInfo.SetupGet(fi => fi.PhysicalPath).Returns(path);

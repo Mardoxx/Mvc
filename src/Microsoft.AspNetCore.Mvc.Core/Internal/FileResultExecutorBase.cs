@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Headers;
@@ -242,7 +243,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             if (range != null)
             {
-                var normalizedRanges = RangeHelper.NormalizeRanges(range, fileLength);
+                var rangeValue = range.Single();
+                long? from = rangeValue.From.HasValue ? rangeValue.From.Value : 0;
+                long? to = rangeValue.To.HasValue ? rangeValue.To.Value : fileLength;
+                var rangeItemHeaderValue = new RangeItemHeaderValue(from, to);
+                var ranges = new List<RangeItemHeaderValue>
+                {
+                    rangeItemHeaderValue,
+                };
+                var normalizedRanges = RangeHelper.NormalizeRanges(ranges, fileLength);
                 if (normalizedRanges == null || normalizedRanges == Array.Empty<RangeItemHeaderValue>())
                 {
                     return null;

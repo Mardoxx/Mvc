@@ -78,7 +78,9 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 4, "Hello", 5)]
         [InlineData(6, 10, "World", 5)]
-        public async Task WriteFileAsync_WritesRangeRequested(long start, long end, string expectedString, long contentLength)
+        [InlineData(null, 4, "Hello", 5)]
+        [InlineData(6, null, "World", 5)]
+        public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
             // Arrange            
             var contentType = "text/plain";
@@ -105,18 +107,25 @@ namespace Microsoft.AspNetCore.Mvc
 
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            var contentRange = new ContentRangeHeaderValue(start, end, byteArray.Length);
-
-            // Assert
+            if (!start.HasValue)
+            {
+                start = 0;
+            }
+            if (!end.HasValue)
+            {
+                end = 10;
+            }
+            var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, byteArray.Length);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
@@ -156,18 +165,17 @@ namespace Microsoft.AspNetCore.Mvc
 
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
-
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
             // Act
             await result.ExecuteResultAsync(actionContext);
+
+            // Assert
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
             var contentRange = new ContentRangeHeaderValue(byteArray.Length);
-
-            // Assert
             Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
