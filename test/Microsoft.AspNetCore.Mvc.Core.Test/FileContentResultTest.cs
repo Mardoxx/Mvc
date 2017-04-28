@@ -99,11 +99,10 @@ namespace Microsoft.AspNetCore.Mvc
         [InlineData(6, 10, "World", 5)]
         [InlineData(null, 4, "Hello", 5)]
         [InlineData(6, null, "World", 5)]
-        public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
+        public async Task WriteFileAsync_PreconditionStateShouldProcess_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
-            // Arrange            
+            // Arrange
             var contentType = "text/plain";
-            var expectedMediaType = contentType;
             var lastModified = new DateTimeOffset();
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
@@ -121,7 +120,6 @@ namespace Microsoft.AspNetCore.Mvc
             {
                 new EntityTagHeaderValue("\"Etag\""),
             };
-
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
@@ -156,11 +154,10 @@ namespace Microsoft.AspNetCore.Mvc
         [InlineData("0-5")]
         [InlineData("bytes = 11-0")]
         [InlineData("bytes = 1-4, 5-11")]
-        public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
+        public async Task WriteFileAsync__PreconditionStateUnspecified_RangeRequestedNotSatisfiable(string rangeString)
         {
-            // Arrange            
+            // Arrange
             var contentType = "text/plain";
-            var expectedMediaType = contentType;
             var lastModified = new DateTimeOffset();
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
@@ -174,11 +171,6 @@ namespace Microsoft.AspNetCore.Mvc
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
             httpContext.Request.Headers[HeaderNames.Range] = rangeString;
-            requestHeaders.IfMatch = new[]
-            {
-                new EntityTagHeaderValue("\"Etag\""),
-            };
-
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
@@ -199,6 +191,90 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Equal(entityTag.ToString(), httpResponse.Headers[HeaderNames.ETag]);
             Assert.Equal(byteArray.Length, httpResponse.ContentLength);
             Assert.Equal("Hello World", body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_PreconditionFailed()
+        {
+            // Arrange
+            var contentType = "text/plain";
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            var byteArray = Encoding.ASCII.GetBytes("Hello World");
+
+            var result = new FileContentResult(
+                fileContents: byteArray,
+                contentType: contentType,
+                lastModified: lastModified,
+                entityTag: entityTag);
+
+            var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfMatch = new[]
+            {
+                new EntityTagHeaderValue("\"NotEtag\""),
+            };
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status412PreconditionFailed, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_NotModified()
+        {
+            // Arrange       
+            var contentType = "text/plain";
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            var byteArray = Encoding.ASCII.GetBytes("Hello World");
+
+            var result = new FileContentResult(
+                fileContents: byteArray,
+                contentType: contentType,
+                lastModified: lastModified,
+                entityTag: entityTag);
+
+            var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfNoneMatch = new[]
+            {
+                new EntityTagHeaderValue("\"Etag\""),
+            };
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status304NotModified, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
         }
 
         [Fact]

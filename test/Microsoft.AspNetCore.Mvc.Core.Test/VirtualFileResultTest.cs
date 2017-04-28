@@ -61,11 +61,9 @@ namespace Microsoft.AspNetCore.Mvc
         [InlineData(8, null, "ResultTestFile contents¡", 25)]
         public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
-            // Arrange            
+            // Arrange
             var path = Path.GetFullPath("helllo.txt");
             var contentType = "text/plain; charset=us-ascii; p1=p1-value";
-            var expectedMediaType = contentType;
-
             var result = new TestVirtualFileResult(path, contentType);
             var appEnvironment = new Mock<IHostingEnvironment>();
             appEnvironment.Setup(app => app.WebRootFileProvider)
@@ -120,8 +118,6 @@ namespace Microsoft.AspNetCore.Mvc
             // Arrange
             var path = Path.GetFullPath("helllo.txt");
             var contentType = "text/plain; charset=us-ascii; p1=p1-value";
-            var expectedMediaType = contentType;
-
             var result = new TestVirtualFileResult(path, contentType);
             var appEnvironment = new Mock<IHostingEnvironment>();
             appEnvironment.Setup(app => app.WebRootFileProvider)
@@ -157,6 +153,90 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
             Assert.Equal(33, httpResponse.ContentLength);
             Assert.Equal("FilePathResultTestFile contents¡", body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_PreconditionFailed()
+        {
+            // Arrange
+            var path = Path.GetFullPath("helllo.txt");
+            var contentType = "text/plain; charset=us-ascii; p1=p1-value";
+            var result = new TestVirtualFileResult(path, contentType);
+            var appEnvironment = new Mock<IHostingEnvironment>();
+            appEnvironment.Setup(app => app.WebRootFileProvider)
+                .Returns(GetFileProvider(path));
+
+            var httpContext = GetHttpContext();
+            httpContext.Response.Body = new MemoryStream();
+            httpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(appEnvironment.Object)
+                .AddTransient<TestVirtualFileResultExecutor>()
+                .AddTransient<ILoggerFactory, LoggerFactory>()
+                .BuildServiceProvider();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.MinValue;
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status412PreconditionFailed, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_NotModified()
+        {
+            // Arrange
+            var path = Path.GetFullPath("helllo.txt");
+            var contentType = "text/plain; charset=us-ascii; p1=p1-value";
+            var result = new TestVirtualFileResult(path, contentType);
+            var appEnvironment = new Mock<IHostingEnvironment>();
+            appEnvironment.Setup(app => app.WebRootFileProvider)
+                .Returns(GetFileProvider(path));
+
+            var httpContext = GetHttpContext();
+            httpContext.Response.Body = new MemoryStream();
+            httpContext.RequestServices = new ServiceCollection()
+                .AddSingleton(appEnvironment.Object)
+                .AddTransient<TestVirtualFileResultExecutor>()
+                .AddTransient<ILoggerFactory, LoggerFactory>()
+                .BuildServiceProvider();
+
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfModifiedSince = DateTimeOffset.UtcNow;
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status304NotModified, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
         }
 
         [Fact]
@@ -433,7 +513,9 @@ namespace Microsoft.AspNetCore.Mvc
             var fileInfo = new Mock<IFileInfo>();
             fileInfo.SetupGet(fi => fi.Length).Returns(33);
             fileInfo.SetupGet(fi => fi.Exists).Returns(true);
-            fileInfo.SetupGet(fi => fi.LastModified).Returns(DateTimeOffset.MinValue);
+            var lastModified = DateTimeOffset.UtcNow;
+            lastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0));
+            fileInfo.SetupGet(fi => fi.LastModified).Returns(lastModified);
             fileInfo.SetupGet(fi => fi.PhysicalPath).Returns(path);
             var fileProvider = new Mock<IFileProvider>();
             fileProvider.Setup(fp => fp.GetFileInfo(path))

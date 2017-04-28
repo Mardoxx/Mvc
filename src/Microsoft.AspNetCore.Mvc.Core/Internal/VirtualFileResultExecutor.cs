@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Core;
@@ -41,6 +42,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 result,
                 fileInfo.Length,
                 fileInfo.LastModified);
+
+            var statusCode = context.HttpContext.Response.StatusCode;
+            if (statusCode == StatusCodes.Status412PreconditionFailed ||
+                statusCode == StatusCodes.Status304NotModified)
+            {
+                return Task.CompletedTask;
+            }
 
             return WriteFileAsync(context, result, fileInfo, range, rangeLength);
         }
@@ -79,7 +87,6 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                         fileStream.Seek(range.From.Value, SeekOrigin.Begin);
                         await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
                     }
-
                     catch (OperationCanceledException)
                     {
                         // Don't throw this exception, it's most likely caused by the client disconnecting.

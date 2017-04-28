@@ -1,6 +1,8 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -46,18 +48,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData(0, 50, "This is a sample text file")]
         public async Task FileFromDisk_CanBeEnabled_WithMiddleware_RangeRequest(long start, long end, string expectedBody)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromDisk");
             httpRequestMessage.Headers.Range = new RangeHeaderValue(start, end);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal(expectedBody, body);
@@ -71,18 +72,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData("bytes = 1-4, 5-11")]
         public async Task FileFromDisk_CanBeEnabled_WithMiddleware_RangeRequestNotSatisfiable(string rangeString)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromDisk");
             httpRequestMessage.Headers.TryAddWithoutValidation("Range", rangeString);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal("This is a sample text file", body);
@@ -134,18 +134,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData(0, 50, "This is sample text from a stream")]
         public async Task FileFromStream_ReturnsFile_RangeRequest(long start, long end, string expectedBody)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromStream");
             httpRequestMessage.Headers.Range = new RangeHeaderValue(start, end);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal(expectedBody, body);
@@ -157,18 +156,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData("bytes = 1-4, 5-11")]
         public async Task FileFromStream_ReturnsFile_RangeRequestNotSatisfiable(string rangeString)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromStream");
             httpRequestMessage.Headers.TryAddWithoutValidation("Range", rangeString);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal("This is sample text from a stream", body);
@@ -218,18 +216,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData(0, 50, "This is a sample text from a binary array")]
         public async Task FileFromBinaryData_ReturnsFile_RangeRequest(long start, long end, string expectedBody)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromBinaryData");
             httpRequestMessage.Headers.Range = new RangeHeaderValue(start, end);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal(expectedBody, body);
@@ -241,18 +238,17 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData("bytes = 1-4, 5-11")]
         public async Task FileFromBinaryData_ReturnsFile_RangeRequestNotSatisfiable(string rangeString)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromBinaryData");
             httpRequestMessage.Headers.TryAddWithoutValidation("Range", rangeString);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal("This is a sample text from a binary array", body);
@@ -309,22 +305,20 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData(0, 50, "Sample text file as embedded resource.")]
         public async Task FileFromEmbeddedResources_ReturnsFileWithFileName_RangeRequest(long start, long end, string expectedBody)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/EmbeddedFiles/DownloadFileWithFileName");
             httpRequestMessage.Headers.Range = new RangeHeaderValue(start, end);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
             Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
-
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal(expectedBody, body);
-
             var contentDisposition = response.Content.Headers.ContentDisposition.ToString();
             Assert.NotNull(contentDisposition);
             Assert.Equal("attachment; filename=downloadName.txt; filename*=UTF-8''downloadName.txt", contentDisposition);
@@ -336,22 +330,20 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [InlineData("bytes = 1-4, 5-11")]
         public async Task FileFromEmbeddedResources_ReturnsFileWithFileName_RangeRequestNotSatisfiable(string rangeString)
         {
-            // Arrange & Act
+            // Arrange
             var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/EmbeddedFiles/DownloadFileWithFileName");
             httpRequestMessage.Headers.TryAddWithoutValidation("Range", rangeString);
 
+            // Act
             var response = await Client.SendAsync(httpRequestMessage);
 
             // Assert
-            //Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
-
+            Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
-
             var body = await response.Content.ReadAsStringAsync();
             Assert.NotNull(body);
             Assert.Equal("Sample text file as embedded resource.", body);
-
             var contentDisposition = response.Content.Headers.ContentDisposition.ToString();
             Assert.NotNull(contentDisposition);
             Assert.Equal("attachment; filename=downloadName.txt; filename*=UTF-8''downloadName.txt", contentDisposition);

@@ -293,14 +293,14 @@ namespace Microsoft.AspNetCore.Mvc
             httpRequestHeaders.IfUnmodifiedSince = lastModified;
             httpRequestHeaders.IfModifiedSince = DateTimeOffset.MinValue;
             actionContext.HttpContext = httpContext;
-            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+            var shouldProcess = FileResultExecutorBase.CheckPreconditionHeaders(
                 actionContext,
                 httpRequestHeaders,
                 lastModified,
                 etag);
 
             // Assert
-            Assert.True(shouldProcess);
+            Assert.Equal(FileResultExecutorBase.PreconditionState.ShouldProcess, shouldProcess);
         }
 
         [Theory]
@@ -329,20 +329,19 @@ namespace Microsoft.AspNetCore.Mvc
             httpRequestHeaders.IfUnmodifiedSince = lastModified.AddSeconds(-1);
             httpRequestHeaders.IfModifiedSince = DateTimeOffset.UtcNow;
             actionContext.HttpContext = httpContext;
-            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+            var shouldProcess = FileResultExecutorBase.CheckPreconditionHeaders(
                 actionContext,
                 httpRequestHeaders,
                 lastModified,
                 etag);
 
             // Assert
-            Assert.False(shouldProcess);
-            Assert.Equal(StatusCodes.Status412PreconditionFailed, httpContext.Response.StatusCode);
+            Assert.Equal(FileResultExecutorBase.PreconditionState.PreconditionFailed, shouldProcess);
         }
 
         [Theory]
-        [InlineData("\"Etag\"", "\"Etag\"")]
-        [InlineData("\"Etag\"", null)]
+        [InlineData(null, "\"Etag\"")]
+        [InlineData(null, null)]
         public void ComputeConditionalHeaders_ShouldNotProcess_NotModified(string ifMatch, string ifNoneMatch)
         {
             var actionContext = new ActionContext();
@@ -362,19 +361,16 @@ namespace Microsoft.AspNetCore.Mvc
             {
                 new EntityTagHeaderValue(ifNoneMatch),
             };
-
-            httpRequestHeaders.IfUnmodifiedSince = lastModified.AddSeconds(-1);
             httpRequestHeaders.IfModifiedSince = lastModified;
             actionContext.HttpContext = httpContext;
-            var shouldProcess = FileResultExecutorBase.ComputeConditionalRequestHeaders(
+            var shouldProcess = FileResultExecutorBase.CheckPreconditionHeaders(
                 actionContext,
                 httpRequestHeaders,
                 lastModified,
                 etag);
 
             // Assert
-            Assert.False(shouldProcess);
-            Assert.Equal(StatusCodes.Status304NotModified, httpContext.Response.StatusCode);
+            Assert.Equal(FileResultExecutorBase.PreconditionState.NotModified, shouldProcess);
         }
 
         private static IServiceCollection CreateServices()

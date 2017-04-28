@@ -1,8 +1,8 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
@@ -34,6 +34,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     context,
                     result,
                     result.FileContents.Length);
+            }
+
+            var statusCode = context.HttpContext.Response.StatusCode;
+            if (statusCode == StatusCodes.Status412PreconditionFailed ||
+                statusCode == StatusCodes.Status304NotModified)
+            {
+                return Task.CompletedTask;
             }
 
             return WriteFileAsync(context, result, range, rangeLength);

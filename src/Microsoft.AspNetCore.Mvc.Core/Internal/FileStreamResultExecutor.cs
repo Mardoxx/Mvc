@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
@@ -44,6 +45,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     context,
                     result,
                     fileLength);
+            }
+
+            var statusCode = context.HttpContext.Response.StatusCode;
+            if (statusCode == StatusCodes.Status412PreconditionFailed ||
+                statusCode == StatusCodes.Status304NotModified)
+            {
+                return Task.CompletedTask;
             }
 
             return WriteFileAsync(context, result, range, rangeLength);

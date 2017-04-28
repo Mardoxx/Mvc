@@ -59,16 +59,12 @@ namespace Microsoft.AspNetCore.Mvc
         [InlineData(8, null, "ResultTestFile contents�", 26)]
         public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
-            // Arrange            
-            var contentType = "text/plain";
-            var expectedMediaType = contentType;
-
+            // Arrange
             var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
             var result = new TestPhysicalFileResult(path, "text/plain");
-
             var httpContext = GetHttpContext();
-
             var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfModifiedSince = DateTimeOffset.MinValue;
             requestHeaders.Range = new RangeHeaderValue(start, end);
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
@@ -105,16 +101,14 @@ namespace Microsoft.AspNetCore.Mvc
         [InlineData("bytes = 1-4, 5-11")]
         public async Task WriteFileAsync_RangeRequested_NotSatisfiable(string rangeString)
         {
-            // Arrange            
-            var contentType = "text/plain";
-            var expectedMediaType = contentType;
-
+            // Arrange
+            var lastModified = DateTimeOffset.UtcNow;
+            lastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0));
             var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
             var result = new TestPhysicalFileResult(path, "text/plain");
-
             var httpContext = GetHttpContext();
-
             var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfModifiedSince = DateTimeOffset.MinValue;
             httpContext.Request.Headers[HeaderNames.Range] = rangeString;
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
@@ -135,6 +129,66 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
             Assert.Equal(34, httpResponse.ContentLength);
             Assert.Equal("FilePathResultTestFile contents�", body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_PreconditionFailed()
+        {
+            // Arrange
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+            var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.MinValue;
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status412PreconditionFailed, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
+        }
+
+        [Fact]
+        public async Task WriteFileAsync_RangeRequested_NotModified()
+        {
+            // Arrange
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+            var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.IfModifiedSince = DateTimeOffset.UtcNow;
+            httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+            Assert.Equal(StatusCodes.Status304NotModified, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Empty(httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Null(httpResponse.ContentLength);
+            Assert.Empty(body);
         }
 
         [Fact]
@@ -324,10 +378,11 @@ namespace Microsoft.AspNetCore.Mvc
 
             protected override FileInfo GetFileInfo(string path)
             {
+                var lastModified = DateTimeOffset.UtcNow;
                 return new FileInfo
                 {
                     Length = 34,
-                    LastModified = DateTimeOffset.Now,
+                    LastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0))
                 };
             }
         }

@@ -58,9 +58,9 @@ namespace Microsoft.AspNetCore.Mvc
         /// </summary>
         /// <param name="fileContents">The bytes that represent the file contents.</param>
         /// <param name="contentType">The Content-Type header of the response.</param>
-        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <see cref="FileContentResult"/>
+        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <paramref name="fileContents"/>
         /// was last modified.</param>
-        /// <param name="entityTag">The entity tag associated with the <see cref="FileContentResult"/>.</param>
+        /// <param name="entityTag">The entity tag associated with the <paramref name="fileContents"/>.</param>
         public FileContentResult(
             byte[] fileContents,
             string contentType,
@@ -79,12 +79,12 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Gets or sets the last modified information associated with the <see cref="FileStreamResult"/>.
+        /// Gets or sets the last modified information associated with the <see cref="FileContentResult"/>.
         /// </summary>
         public DateTimeOffset? LastModified { get; set; }
 
         /// <summary>
-        /// Gets or sets the etag associated with the <see cref="FileStreamResult"/>.
+        /// Gets or sets the etag associated with the <see cref="FileContentResult"/>.
         /// </summary>
         public EntityTagHeaderValue EntityTag { get; set; }
 
