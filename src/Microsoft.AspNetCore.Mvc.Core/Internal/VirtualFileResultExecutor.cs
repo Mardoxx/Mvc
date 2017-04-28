@@ -38,11 +38,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             RangeItemHeaderValue range;
             long rangeLength;
             bool returnEmptyBody;
-            (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
-                context,
-                result,
-                fileInfo.Length,
-                fileInfo.LastModified);
+            if (fileInfo.Exists)
+            {
+                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
+                    context,
+                    result,
+                    fileInfo.Length,
+                    fileInfo.LastModified);
+            }
+            else
+            {
+                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(context, result, null);
+            }
 
             if (returnEmptyBody)
             {

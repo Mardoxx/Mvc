@@ -52,7 +52,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
             }
-            else if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range))
+            else if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range) && fileLength != null)
             {
                 if (preconditionState.Equals(PreconditionState.Unspecified) ||
                     preconditionState.Equals(PreconditionState.ShouldProcess))

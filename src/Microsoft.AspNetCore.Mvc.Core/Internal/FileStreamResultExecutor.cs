@@ -35,9 +35,9 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
                 context,
                 result,
-                fileLength: fileLength.HasValue ? fileLength.Value : 0,
-                lastModified: result.LastModified.HasValue ? result.LastModified.Value : (DateTimeOffset?)null,
-                etag: result.EntityTag);
+                fileLength,
+                result.LastModified,
+                result.EntityTag);
 
             if (returnEmptyBody)
             {

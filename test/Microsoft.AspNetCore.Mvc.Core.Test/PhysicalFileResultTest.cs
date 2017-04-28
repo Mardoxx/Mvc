@@ -381,6 +381,7 @@ namespace Microsoft.AspNetCore.Mvc
                 var lastModified = DateTimeOffset.UtcNow;
                 return new FileInfo
                 {
+                    Exists = true,
                     Length = 34,
                     LastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0))
                 };

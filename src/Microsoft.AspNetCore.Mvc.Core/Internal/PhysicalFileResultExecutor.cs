@@ -28,11 +28,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             long rangeLength;
             bool returnEmptyBody;
             var fileInfo = GetFileInfo(result.FileName);
-            (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
-                context,
-                result,
-                fileInfo.Length,
-                fileInfo.LastModified);
+            if (fileInfo.Exists)
+            {
+                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
+                    context,
+                    result,
+                    fileInfo.Length,
+                    fileInfo.LastModified);
+            }
+            else
+            {
+                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(context, result, null);
+            }
 
             if (returnEmptyBody)
             {
@@ -128,6 +135,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var fileInfo = new System.IO.FileInfo(path);
             return new FileInfo
             {
+                Exists = fileInfo.Exists,
                 Length = fileInfo.Length,
                 LastModified = fileInfo.LastWriteTimeUtc,
             };
@@ -135,6 +143,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected class FileInfo
         {
+            public bool Exists { get; set; }
+
             public long Length { get; set; }
 
             public DateTimeOffset LastModified { get; set; }

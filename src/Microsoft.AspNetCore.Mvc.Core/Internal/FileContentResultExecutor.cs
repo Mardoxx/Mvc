@@ -26,8 +26,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 context,
                 result,
                 result.FileContents.Length,
-                lastModified: result.LastModified.HasValue ? result.LastModified.Value : (DateTimeOffset?) null,
-                etag: result.EntityTag);
+                result.LastModified,
+                result.EntityTag);
 
             if (returnEmptyBody)
             {
