@@ -65,7 +65,7 @@ namespace Microsoft.AspNetCore.Mvc
             byte[] fileContents,
             string contentType,
             DateTimeOffset? lastModified,
-            EntityTagHeaderValue entityTag = null)
+            EntityTagHeaderValue entityTag)
             : base(contentType?.ToString())
         {
             if (fileContents == null)

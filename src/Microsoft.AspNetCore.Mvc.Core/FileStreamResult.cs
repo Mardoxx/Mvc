@@ -62,7 +62,7 @@ namespace Microsoft.AspNetCore.Mvc
             Stream fileStream,
             string contentType,
             DateTimeOffset? lastModified,
-            EntityTagHeaderValue entityTag = null)
+            EntityTagHeaderValue entityTag)
             : base(contentType?.ToString())
         {
             if (fileStream == null)
