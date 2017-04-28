@@ -1174,7 +1174,11 @@ namespace Microsoft.AspNetCore.Mvc
         [NonAction]
         public virtual FileContentResult File(byte[] fileContents, string contentType, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
         {
-            return new FileContentResult(fileContents, contentType, lastModified, entityTag);
+            return new FileContentResult(fileContents, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
         }
 
         /// <summary>
@@ -1190,7 +1194,12 @@ namespace Microsoft.AspNetCore.Mvc
         [NonAction]
         public virtual FileContentResult File(byte[] fileContents, string contentType, string fileDownloadName, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
         {
-            return new FileContentResult(fileContents, contentType, lastModified, entityTag) { FileDownloadName = fileDownloadName };
+            return new FileContentResult(fileContents, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+                FileDownloadName = fileDownloadName,
+            };
         }
 
         /// <summary>
@@ -1233,7 +1242,11 @@ namespace Microsoft.AspNetCore.Mvc
         [NonAction]
         public virtual FileStreamResult File(Stream fileStream, string contentType, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
         {
-            return new FileStreamResult(fileStream, contentType, lastModified, entityTag);
+            return new FileStreamResult(fileStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
         }
 
         /// <summary>
@@ -1249,7 +1262,12 @@ namespace Microsoft.AspNetCore.Mvc
         [NonAction]
         public virtual FileStreamResult File(Stream fileStream, string contentType, string fileDownloadName, DateTimeOffset? lastModified, EntityTagHeaderValue entityTag)
         {
-            return new FileStreamResult(fileStream, contentType, lastModified, entityTag) { FileDownloadName = fileDownloadName };
+            return new FileStreamResult(fileStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+                FileDownloadName = fileDownloadName,
+            };
         }
 
         /// <summary>

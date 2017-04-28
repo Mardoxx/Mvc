@@ -60,11 +60,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
 
             // Act
-            var result = new FileContentResult(
-                fileContents: fileContents,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileContentResult(fileContents, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag
+            };
 
             // Assert
             Assert.Equal(lastModified, result.LastModified);
@@ -107,11 +107,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
 
-            var result = new FileContentResult(
-                fileContents: byteArray,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileContentResult(byteArray, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -162,11 +162,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
 
-            var result = new FileContentResult(
-                fileContents: byteArray,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileContentResult(byteArray, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -202,11 +202,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
 
-            var result = new FileContentResult(
-                fileContents: byteArray,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileContentResult(byteArray, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -244,11 +244,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
 
-            var result = new FileContentResult(
-                fileContents: byteArray,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileContentResult(byteArray, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();

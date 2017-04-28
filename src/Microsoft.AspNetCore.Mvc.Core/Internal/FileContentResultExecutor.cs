@@ -1,6 +1,7 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -19,26 +20,16 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         {
             RangeItemHeaderValue range;
             long rangeLength;
-            if (result.LastModified.HasValue)
-            {
-                (range, rangeLength) = SetHeadersAndLog(
-                    context,
-                    result,
-                    result.FileContents.Length,
-                    result.LastModified.Value,
-                    result.EntityTag);
-            }
-            else
-            {
-                (range, rangeLength) = SetHeadersAndLog(
-                    context,
-                    result,
-                    result.FileContents.Length);
-            }
+            bool returnEmptyBody;
 
-            var statusCode = context.HttpContext.Response.StatusCode;
-            if (statusCode == StatusCodes.Status412PreconditionFailed ||
-                statusCode == StatusCodes.Status304NotModified)
+            (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
+                context,
+                result,
+                result.FileContents.Length,
+                lastModified: result.LastModified.HasValue ? result.LastModified.Value : (DateTimeOffset?) null,
+                etag: result.EntityTag);
+
+            if (returnEmptyBody)
             {
                 return Task.CompletedTask;
             }

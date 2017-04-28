@@ -16,6 +16,8 @@ namespace Microsoft.AspNetCore.Mvc
     public class FileContentResult : FileResult
     {
         private byte[] _fileContents;
+        private EntityTagHeaderValue _entityTag;
+        private DateTimeOffset? _lastModified;
 
         /// <summary>
         /// Creates a new <see cref="FileContentResult"/> instance with
@@ -51,42 +53,48 @@ namespace Microsoft.AspNetCore.Mvc
             FileContents = fileContents;
         }
 
-        /// <summary>
-        /// Creates a new <see cref="FileContentResult"/> instance with
-        /// the provided <paramref name="fileContents"/> and the
-        /// provided <paramref name="contentType"/>.
-        /// </summary>
-        /// <param name="fileContents">The bytes that represent the file contents.</param>
-        /// <param name="contentType">The Content-Type header of the response.</param>
-        /// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <paramref name="fileContents"/>
-        /// was last modified.</param>
-        /// <param name="entityTag">The entity tag associated with the <paramref name="fileContents"/>.</param>
-        public FileContentResult(
-            byte[] fileContents,
-            string contentType,
-            DateTimeOffset? lastModified,
-            EntityTagHeaderValue entityTag)
-            : base(contentType?.ToString())
-        {
-            if (fileContents == null)
-            {
-                throw new ArgumentNullException(nameof(fileContents));
-            }
+        ///// <summary>
+        ///// Creates a new <see cref="FileContentResult"/> instance with
+        ///// the provided <paramref name="fileContents"/> and the
+        ///// provided <paramref name="contentType"/>.
+        ///// </summary>
+        ///// <param name="fileContents">The bytes that represent the file contents.</param>
+        ///// <param name="contentType">The Content-Type header of the response.</param>
+        ///// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <paramref name="fileContents"/>
+        ///// was last modified.</param>
+        ///// <param name="entityTag">The entity tag associated with the <paramref name="fileContents"/>.</param>
+        //public FileContentResult(
+        //    byte[] fileContents,
+        //    string contentType,
+        //    DateTimeOffset? lastModified,
+        //    EntityTagHeaderValue entityTag)
+        //    : base(contentType?.ToString())
+        //{
+        //    if (fileContents == null)
+        //    {
+        //        throw new ArgumentNullException(nameof(fileContents));
+        //    }
 
-            FileContents = fileContents;
-            LastModified = lastModified;
-            EntityTag = entityTag;
-        }
+        //    FileContents = fileContents;
+        //}
 
         /// <summary>
         /// Gets or sets the last modified information associated with the <see cref="FileContentResult"/>.
         /// </summary>
-        public DateTimeOffset? LastModified { get; set; }
+        public DateTimeOffset? LastModified
+        {
+            get { return _lastModified ?? null; }
+            set { _lastModified = value; }
+        }
 
         /// <summary>
         /// Gets or sets the etag associated with the <see cref="FileContentResult"/>.
         /// </summary>
-        public EntityTagHeaderValue EntityTag { get; set; }
+        public EntityTagHeaderValue EntityTag
+        {
+            get { return _entityTag ?? null; }
+            set { _entityTag = value; }
+        }
 
         /// <summary>
         /// Gets or sets the file contents.

@@ -37,15 +37,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var fileInfo = GetFileInformation(result);
             RangeItemHeaderValue range;
             long rangeLength;
-            (range, rangeLength) = SetHeadersAndLog(
+            bool returnEmptyBody;
+            (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
                 context,
                 result,
                 fileInfo.Length,
                 fileInfo.LastModified);
 
-            var statusCode = context.HttpContext.Response.StatusCode;
-            if (statusCode == StatusCodes.Status412PreconditionFailed ||
-                statusCode == StatusCodes.Status304NotModified)
+            if (returnEmptyBody)
             {
                 return Task.CompletedTask;
             }
@@ -56,49 +55,69 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         private async Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
-            var fileStream = GetFileStream(fileInfo);
-            if (fileInfo.Exists)
+            if (!fileInfo.Exists)
             {
+                throw new FileNotFoundException(
+                    Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
+            }
+            else
+            {
+                if (range != null && rangeLength == 0)
+                {
+                    return;
+                }
                 var physicalPath = fileInfo.PhysicalPath;
                 var sendFile = response.HttpContext.Features.Get<IHttpSendFileFeature>();
                 if (sendFile != null && !string.IsNullOrEmpty(physicalPath))
                 {
-                    await sendFile.SendFileAsync(
-                        physicalPath,
-                        offset: 0,
-                        count: null,
-                        cancellation: default(CancellationToken));
-                }
-                else if (range == null || !fileStream.CanSeek)
-                {
-                    using (fileStream)
+                    if (range != null)
                     {
-                        await fileStream.CopyToAsync(response.Body, DefaultBufferSize);
+                        await sendFile.SendFileAsync(
+                            physicalPath,
+                            offset: (range.From.HasValue) ? range.From.Value : 0L,
+                            count: rangeLength,
+                            cancellation: default(CancellationToken));
+                    }
+                    else
+                    {
+                        await sendFile.SendFileAsync(
+                            physicalPath,
+                            offset: 0,
+                            count: null,
+                            cancellation: default(CancellationToken));
                     }
                 }
-                else if (rangeLength == 0)
+                using (var fileStream = GetFileStream(fileInfo))
                 {
-                    return;
-                }
-                else
-                {
-                    try
+                    if (range == null || !fileStream.CanSeek)
                     {
-                        fileStream.Seek(range.From.Value, SeekOrigin.Begin);
-                        await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
+                        try
+                        {
+                            fileStream.Seek(0, SeekOrigin.Begin);
+                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, null, DefaultBufferSize, context.HttpContext.RequestAborted);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Don't throw this exception, it's most likely caused by the client disconnecting.
+                            // However, if it was cancelled for any other reason we need to prevent empty responses.
+                            context.HttpContext.Abort();
+                        }
                     }
-                    catch (OperationCanceledException)
+                    else
                     {
-                        // Don't throw this exception, it's most likely caused by the client disconnecting.
-                        // However, if it was cancelled for any other reason we need to prevent empty responses.
-                        context.HttpContext.Abort();
+                        try
+                        {
+                            fileStream.Seek(range.From.Value, SeekOrigin.Begin);
+                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            // Don't throw this exception, it's most likely caused by the client disconnecting.
+                            // However, if it was cancelled for any other reason we need to prevent empty responses.
+                            context.HttpContext.Abort();
+                        }
                     }
                 }
-            }
-            else
-            {
-                throw new FileNotFoundException(
-                    Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
             }
         }
 

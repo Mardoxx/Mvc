@@ -63,11 +63,11 @@ namespace Microsoft.AspNetCore.Mvc
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
 
             // Act
-            var result = new FileStreamResult(
-                fileStream: stream,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileStreamResult(stream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
 
             // Assert
             Assert.Equal(lastModified, result.LastModified);
@@ -90,11 +90,11 @@ namespace Microsoft.AspNetCore.Mvc
             var readStream = new MemoryStream(byteArray);
             readStream.SetLength(11);
 
-            var result = new FileStreamResult(
-                fileStream: readStream,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileStreamResult(readStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -146,11 +146,11 @@ namespace Microsoft.AspNetCore.Mvc
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
             var readStream = new MemoryStream(byteArray);
 
-            var result = new FileStreamResult(
-                fileStream: readStream,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileStreamResult(readStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -187,11 +187,11 @@ namespace Microsoft.AspNetCore.Mvc
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
             var readStream = new MemoryStream(byteArray);
 
-            var result = new FileStreamResult(
-                fileStream: readStream,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileStreamResult(readStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();
@@ -230,11 +230,11 @@ namespace Microsoft.AspNetCore.Mvc
             var byteArray = Encoding.ASCII.GetBytes("Hello World");
             var readStream = new MemoryStream(byteArray);
 
-            var result = new FileStreamResult(
-                fileStream: readStream,
-                contentType: contentType,
-                lastModified: lastModified,
-                entityTag: entityTag);
+            var result = new FileStreamResult(readStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
 
             var httpContext = GetHttpContext();
             var requestHeaders = httpContext.Request.GetTypedHeaders();

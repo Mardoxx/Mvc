@@ -23,33 +23,23 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, FileStreamResult result)
         {
-            var fileLength = 0L;
+            long? fileLength = null;
             RangeItemHeaderValue range;
             long rangeLength;
+            bool returnEmptyBody;
             if (result.FileStream.CanSeek)
             {
                 fileLength = result.FileStream.Length;
             }
-            if (result.LastModified.HasValue)
-            {
-                (range, rangeLength) = SetHeadersAndLog(
-                    context,
-                    result,
-                    fileLength,
-                    result.LastModified.Value,
-                    result.EntityTag);
-            }
-            else
-            {
-                (range, rangeLength) = SetHeadersAndLog(
-                    context,
-                    result,
-                    fileLength);
-            }
 
-            var statusCode = context.HttpContext.Response.StatusCode;
-            if (statusCode == StatusCodes.Status412PreconditionFailed ||
-                statusCode == StatusCodes.Status304NotModified)
+            (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
+                context,
+                result,
+                fileLength: fileLength.HasValue ? fileLength.Value : 0,
+                lastModified: result.LastModified.HasValue ? result.LastModified.Value : (DateTimeOffset?)null,
+                etag: result.EntityTag);
+
+            if (returnEmptyBody)
             {
                 return Task.CompletedTask;
             }
@@ -61,17 +51,27 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         {
             var response = context.HttpContext.Response;
             var outputStream = response.Body;
+            if (range != null && rangeLength == 0)
+            {
+                return;
+            }
 
             using (result.FileStream)
             {
                 if (range == null)
                 {
-                    await result.FileStream.CopyToAsync(outputStream, BufferSize);
-                }
+                    try
+                    {
+                        result.FileStream.Seek(0, SeekOrigin.Begin);
+                        await StreamCopyOperation.CopyToAsync(result.FileStream, outputStream, null, BufferSize, context.HttpContext.RequestAborted);
+                    }
 
-                else if (rangeLength == 0)
-                {
-                    return;
+                    catch (OperationCanceledException)
+                    {
+                        // Don't throw this exception, it's most likely caused by the client disconnecting.
+                        // However, if it was cancelled for any other reason we need to prevent empty responses.
+                        context.HttpContext.Abort();
+                    }
                 }
 
                 else

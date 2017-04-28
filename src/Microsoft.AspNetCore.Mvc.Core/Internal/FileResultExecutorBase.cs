@@ -31,7 +31,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected ILogger Logger { get; }
 
-        protected (RangeItemHeaderValue range, long rangeLength) SetHeadersAndLog(ActionContext context, FileResult result, long fileLength, DateTimeOffset? lastModified = null, EntityTagHeaderValue etag = null)
+        protected (RangeItemHeaderValue range, long rangeLength, bool returnEmptyBody) SetHeadersAndLog(ActionContext context, FileResult result, long? fileLength, DateTimeOffset? lastModified = null, EntityTagHeaderValue etag = null)
         {
             SetContentType(context, result);
             SetContentDispositionHeader(context, result);
@@ -46,33 +46,34 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     httpRequestHeaders,
                     lastModified,
                     etag);
-            if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range))
-            {
-                if (preconditionState.Equals(PreconditionState.Unspecified) ||
-                    preconditionState.Equals(PreconditionState.ShouldProcess))
-                    return SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
-            }
-            else if (HttpMethods.IsHead(context.HttpContext.Request.Method) &&
+            var returnEmptyBody = false;
+            if (HttpMethods.IsHead(context.HttpContext.Request.Method) &&
                 preconditionState.Equals(PreconditionState.ShouldProcess))
             {
                 context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
             }
+            else if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range))
+            {
+                if (preconditionState.Equals(PreconditionState.Unspecified) ||
+                    preconditionState.Equals(PreconditionState.ShouldProcess))
+                {
+                    var rangeInfo = SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
+                    return (rangeInfo.range, rangeInfo.rangeLength, returnEmptyBody);
+                }
+            }
 
             if (preconditionState.Equals(PreconditionState.NotModified))
             {
+                returnEmptyBody = true;
                 context.HttpContext.Response.StatusCode = StatusCodes.Status304NotModified;
             }
-            if (preconditionState.Equals(PreconditionState.PreconditionFailed))
+            else if (preconditionState.Equals(PreconditionState.PreconditionFailed))
             {
+                returnEmptyBody = true;
                 context.HttpContext.Response.StatusCode = StatusCodes.Status412PreconditionFailed;
             }
 
-            return (null, 0);
-        }
-
-        private void RequestMethodHead()
-        {
-            throw new NotImplementedException();
+            return (null, 0, returnEmptyBody);
         }
 
         private void SetContentType(ActionContext context, FileResult result)
@@ -167,8 +168,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         private static PreconditionState GetMaxPreconditionState(params PreconditionState[] states)
         {
-            PreconditionState max = PreconditionState.Unspecified;
-            for (int i = 0; i < states.Length; i++)
+            var max = PreconditionState.Unspecified;
+            for (var i = 0; i < states.Length; i++)
             {
                 if (states[i] > max)
                 {
@@ -181,13 +182,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         private (RangeItemHeaderValue range, long rangeLength) SetRangeHeaders(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
-            long fileLength,
+            long? fileLength,
             DateTimeOffset? lastModified = null,
             EntityTagHeaderValue etag = null)
         {
             var response = context.HttpContext.Response;
             var httpResponseHeaders = response.GetTypedHeaders();
-            var range = ParseRange(context, httpRequestHeaders, fileLength, lastModified, etag);
+            var range = ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag);
             var rangeNotSatisfiable = range == null;
             if (rangeNotSatisfiable)
             {
@@ -195,15 +196,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 // SHOULD include a Content-Range field with a byte-range-resp-spec of "*". The instance-length specifies
                 // the current length of the selected resource.  e.g. */length
                 response.StatusCode = StatusCodes.Status416RangeNotSatisfiable;
-                httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(fileLength);
-                response.ContentLength = fileLength;
-                return (null, fileLength);
+                if (fileLength != null)
+                {
+                    httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(fileLength.Value);
+                    response.ContentLength = fileLength.Value;
+                }
+                return (null, fileLength.Value);
             }
 
             httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(
                 range.From.Value,
                 range.To.Value,
-                fileLength);
+                fileLength.Value);
 
             response.StatusCode = StatusCodes.Status206PartialContent;
             var rangeLength = SetContentLength(context, range);
@@ -212,9 +216,9 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         private long SetContentLength(ActionContext context, RangeItemHeaderValue range)
         {
-            long start = range.From.Value;
-            long end = range.To.Value;
-            long length = end - start + 1;
+            var start = range.From.Value;
+            var end = range.To.Value;
+            var length = end - start + 1;
             var response = context.HttpContext.Response;
             response.ContentLength = length;
             return length;
