@@ -34,21 +34,23 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, VirtualFileResult result)
         {
-            var fileInfo = GetFileInformation(result);
             RangeItemHeaderValue range;
             long rangeLength;
             bool returnEmptyBody;
+            var fileInfo = GetFileInformation(result);
             if (fileInfo.Exists)
             {
+                var lastModified = result.LastModified == null ? fileInfo.LastModified : result.LastModified;
                 (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
                     context,
                     result,
                     fileInfo.Length,
-                    fileInfo.LastModified);
+                    lastModified,
+                    result.EntityTag);
             }
             else
             {
-                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(context, result, null);
+                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(context, result, null, result.LastModified, result.EntityTag);
             }
 
             if (returnEmptyBody)
@@ -94,34 +96,37 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                             cancellation: default(CancellationToken));
                     }
                 }
-                using (var fileStream = GetFileStream(fileInfo))
+                else
                 {
-                    if (range == null || !fileStream.CanSeek)
+                    using (var fileStream = GetFileStream(fileInfo))
                     {
-                        try
+                        if (range == null || !fileStream.CanSeek)
                         {
-                            fileStream.Seek(0, SeekOrigin.Begin);
-                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, null, DefaultBufferSize, context.HttpContext.RequestAborted);
+                            try
+                            {
+                                fileStream.Seek(0, SeekOrigin.Begin);
+                                await StreamCopyOperation.CopyToAsync(fileStream, response.Body, null, DefaultBufferSize, context.HttpContext.RequestAborted);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                // Don't throw this exception, it's most likely caused by the client disconnecting.
+                                // However, if it was cancelled for any other reason we need to prevent empty responses.
+                                context.HttpContext.Abort();
+                            }
                         }
-                        catch (OperationCanceledException)
+                        else
                         {
-                            // Don't throw this exception, it's most likely caused by the client disconnecting.
-                            // However, if it was cancelled for any other reason we need to prevent empty responses.
-                            context.HttpContext.Abort();
-                        }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            fileStream.Seek(range.From.Value, SeekOrigin.Begin);
-                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, context.HttpContext.RequestAborted);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Don't throw this exception, it's most likely caused by the client disconnecting.
-                            // However, if it was cancelled for any other reason we need to prevent empty responses.
-                            context.HttpContext.Abort();
+                            try
+                            {
+                                fileStream.Seek(range.From.Value, SeekOrigin.Begin);
+                                await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, DefaultBufferSize, context.HttpContext.RequestAborted);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                // Don't throw this exception, it's most likely caused by the client disconnecting.
+                                // However, if it was cancelled for any other reason we need to prevent empty responses.
+                                context.HttpContext.Abort();
+                            }
                         }
                     }
                 }

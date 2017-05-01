@@ -263,6 +263,55 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Empty(body);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(null)]
+        public async Task WriteFileAsync_RangeRequested_FileLengthZeroOrNull(long? fileLength)
+        {
+            // Arrange
+            var contentType = "text/plain";
+            var lastModified = new DateTimeOffset();
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            var byteArray = Encoding.ASCII.GetBytes("");
+            var readStream = new MemoryStream(byteArray);
+            fileLength = fileLength ?? 0L;
+            readStream.SetLength(fileLength.Value);
+            var result = new FileStreamResult(readStream, contentType)
+            {
+                LastModified = lastModified,
+                EntityTag = entityTag,
+            };
+
+            var httpContext = GetHttpContext();
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.Range = new RangeHeaderValue(0, 5);
+            requestHeaders.IfMatch = new[]
+            {
+                new EntityTagHeaderValue("\"Etag\""),
+            };
+            httpContext.Request.Method = HttpMethods.Get;
+            httpContext.Response.Body = new MemoryStream();
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+            httpResponse.Body.Seek(0, SeekOrigin.Begin);
+            var streamReader = new StreamReader(httpResponse.Body);
+            var body = streamReader.ReadToEndAsync().Result;
+
+            var contentRange = new ContentRangeHeaderValue(byteArray.Length);
+            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.Equal(lastModified.ToString("R"), httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(entityTag.ToString(), httpResponse.Headers[HeaderNames.ETag]);
+            Assert.Equal(byteArray.Length, httpResponse.ContentLength);
+            Assert.Equal("", body);
+        }
+
         [Fact]
         public async Task WriteFileAsync_WritesResponse_InChunksOfFourKilobytes()
         {

@@ -1,10 +1,12 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System;
 using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace FilesWebSite
 {
@@ -23,10 +25,26 @@ namespace FilesWebSite
             return PhysicalFile(path, "text/plain");
         }
 
+        public IActionResult DownloadFromDisk_WithLastModifiedAndEtag()
+        {
+            var path = Path.Combine(_hostingEnvironment.ContentRootPath, "sample.txt");
+            var lastModified = DateTimeOffset.Parse("05/01/2008 +1:00");
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            return PhysicalFile(path, "text/plain", lastModified, entityTag);
+        }
+
         public IActionResult DownloadFromDiskWithFileName()
         {
             var path = Path.Combine(_hostingEnvironment.ContentRootPath, "sample.txt");
             return PhysicalFile(path, "text/plain", "downloadName.txt");
+        }
+
+        public IActionResult DownloadFromDiskWithFileName_WithLastModifiedAndEtag()
+        {
+            var path = Path.Combine(_hostingEnvironment.ContentRootPath, "sample.txt");
+            var lastModified = DateTimeOffset.Parse("05/01/2008 +1:00");
+            var entityTag = new EntityTagHeaderValue("\"Etag\"");
+            return PhysicalFile(path, "text/plain", "downloadName.txt", lastModified, entityTag);
         }
 
         public IActionResult DownloadFromStream()

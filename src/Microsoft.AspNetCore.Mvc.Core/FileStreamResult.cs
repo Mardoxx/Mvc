@@ -17,8 +17,6 @@ namespace Microsoft.AspNetCore.Mvc
     public class FileStreamResult : FileResult
     {
         private Stream _fileStream;
-        private EntityTagHeaderValue _entityTag;
-        private DateTimeOffset? _lastModified;
 
         /// <summary>
         /// Creates a new <see cref="FileStreamResult"/> instance with
@@ -48,51 +46,6 @@ namespace Microsoft.AspNetCore.Mvc
             }
 
             FileStream = fileStream;
-        }
-
-        ///// <summary>
-        ///// Creates a new <see cref="FileStreamResult"/> instance with
-        ///// the provided <paramref name="fileStream"/> and the
-        ///// provided <paramref name="contentType"/>.
-        ///// </summary>
-        ///// <param name="fileStream">The stream with the file.</param>
-        ///// <param name="contentType">The Content-Type header of the response.</param>
-        ///// <param name="lastModified">The <see cref="DateTimeOffset"/> of when the <see cref="FileStreamResult"/>
-        ///// was last modified.</param>
-        ///// <param name="entityTag">The entity tag associated with the <see cref="FileStreamResult"/>.</param>
-        //public FileStreamResult(
-        //    Stream fileStream,
-        //    string contentType,
-        //    DateTimeOffset? lastModified,
-        //    EntityTagHeaderValue entityTag)
-        //    : base(contentType?.ToString())
-        //{
-        //    if (fileStream == null)
-        //    {
-        //        throw new ArgumentNullException(nameof(fileStream));
-        //    }
-
-        //    FileStream = fileStream;
-        //    LastModified = lastModified;
-        //    EntityTag = entityTag;
-        //}
-
-        /// <summary>
-        /// Gets or sets the last modified information associated with the <see cref="FileStreamResult"/>.
-        /// </summary>
-        public DateTimeOffset? LastModified
-        {
-            get { return _lastModified ?? null; }
-            set { _lastModified = value; }
-        }
-
-        /// <summary>
-        /// Gets or sets the etag associated with the <see cref="FileStreamResult"/>.
-        /// </summary>
-        public EntityTagHeaderValue EntityTag
-        {
-            get { return _entityTag ?? null; }
-            set { _entityTag = value; }
         }
 
         /// <summary>

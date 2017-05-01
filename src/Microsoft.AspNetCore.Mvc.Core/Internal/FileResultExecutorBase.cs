@@ -52,7 +52,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 context.HttpContext.Response.StatusCode = StatusCodes.Status200OK;
             }
-            else if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range) && fileLength != null)
+            else if (context.HttpContext.Request.Headers.ContainsKey(HeaderNames.Range))
             {
                 if (preconditionState.Equals(PreconditionState.Unspecified) ||
                     preconditionState.Equals(PreconditionState.ShouldProcess))
@@ -103,6 +103,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             response.Headers[HeaderNames.AcceptRanges] = AcceptRangeHeaderValue;
         }
 
+        // Internal for testing
         internal static PreconditionState CheckPreconditionHeaders(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
@@ -188,7 +189,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         {
             var response = context.HttpContext.Response;
             var httpResponseHeaders = response.GetTypedHeaders();
-            var range = ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag);
+            var range = fileLength == null ? null : ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag);
             var rangeNotSatisfiable = range == null;
             if (rangeNotSatisfiable)
             {

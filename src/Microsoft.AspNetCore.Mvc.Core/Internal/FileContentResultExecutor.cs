@@ -2,8 +2,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
@@ -11,6 +12,9 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 {
     public class FileContentResultExecutor : FileResultExecutorBase
     {
+        // default buffer size as defined in BufferedStream type
+        private const int BufferSize = 0x1000;
+
         public FileContentResultExecutor(ILoggerFactory loggerFactory)
             : base(CreateLogger<FileContentResultExecutor>(loggerFactory))
         {
@@ -37,24 +41,49 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return WriteFileAsync(context, result, range, rangeLength);
         }
 
-        private static Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue range, long rangeLength)
+        private static async Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
             var outputStream = response.Body;
-
-            if (range == null)
+            var fileContentsStream = new MemoryStream(result.FileContents);
+            if (range != null && rangeLength == 0)
             {
-                return response.Body.WriteAsync(result.FileContents, offset: 0, count: result.FileContents.Length);
+                return;
             }
 
-            else if (rangeLength == 0)
+            using (fileContentsStream)
             {
-                return Task.CompletedTask;
-            }
+                if (range == null)
+                {
+                    try
+                    {
+                        fileContentsStream.Seek(0, SeekOrigin.Begin);
+                        await StreamCopyOperation.CopyToAsync(fileContentsStream, outputStream, null, BufferSize, context.HttpContext.RequestAborted);
+                    }
 
-            else
-            {
-                return response.Body.WriteAsync(result.FileContents, offset: (int)range.From.Value, count: (int)rangeLength);
+                    catch (OperationCanceledException)
+                    {
+                        // Don't throw this exception, it's most likely caused by the client disconnecting.
+                        // However, if it was cancelled for any other reason we need to prevent empty responses.
+                        context.HttpContext.Abort();
+                    }
+                }
+
+                else
+                {
+                    try
+                    {
+                        fileContentsStream.Seek(range.From.Value, SeekOrigin.Begin);
+                        await StreamCopyOperation.CopyToAsync(fileContentsStream, outputStream, rangeLength, BufferSize, context.HttpContext.RequestAborted);
+                    }
+
+                    catch (OperationCanceledException)
+                    {
+                        // Don't throw this exception, it's most likely caused by the client disconnecting.
+                        // However, if it was cancelled for any other reason we need to prevent empty responses.
+                        context.HttpContext.Abort();
+                    }
+                }
             }
         }
     }

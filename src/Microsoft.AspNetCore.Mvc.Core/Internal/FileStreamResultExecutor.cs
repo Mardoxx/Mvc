@@ -4,7 +4,6 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
@@ -79,7 +78,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     try
                     {
                         result.FileStream.Seek(range.From.Value, SeekOrigin.Begin);
-                        await StreamCopyOperation.CopyToAsync(result.FileStream, outputStream, rangeLength, context.HttpContext.RequestAborted);
+                        await StreamCopyOperation.CopyToAsync(result.FileStream, outputStream, rangeLength, BufferSize, context.HttpContext.RequestAborted);
                     }
 
                     catch (OperationCanceledException)

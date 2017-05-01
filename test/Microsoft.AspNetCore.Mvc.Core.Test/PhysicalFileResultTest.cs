@@ -233,6 +233,90 @@ namespace Microsoft.AspNetCore.Mvc
             sendFileMock.Verify();
         }
 
+        [Theory]
+        [InlineData(0, 3, "File", 4)]
+        [InlineData(8, 13, "Result", 6)]
+        [InlineData(null, 3, "File", 4)]
+        [InlineData(8, null, "ResultTestFile contents¡", 26)]
+        public async Task ExecuteResultAsync_CallsSendFileAsyncWithRequestedRange_IfIHttpSendFilePresent(long? start, long? end, string expectedString, long contentLength)
+        {
+            // Arrange
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+
+            var sendFile = new TestSendFileFeature();
+            var httpContext = GetHttpContext();
+            httpContext.Features.Set<IHttpSendFileFeature>(sendFile);
+            var context = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            requestHeaders.Range = new RangeHeaderValue(start, end);
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            httpContext.Request.Method = HttpMethods.Get;
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            var httpResponse = actionContext.HttpContext.Response;
+
+            if (!start.HasValue)
+            {
+                start = 0;
+            }
+            if (!end.HasValue)
+            {
+                end = 33;
+            }
+            Assert.Equal(Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt")), sendFile.name);
+            Assert.Equal(start, sendFile.offset);
+            Assert.Equal(contentLength, sendFile.length);
+            Assert.Equal(CancellationToken.None, sendFile.token);
+            var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 34);
+            Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(contentLength, httpResponse.ContentLength);
+        }
+
+        [Theory]
+        [InlineData("0-5")]
+        [InlineData("bytes = 11-0")]
+        [InlineData("bytes = 1-4, 5-11")]
+        public async Task ExecuteResultAsync_CallsSendFileAsyncWithRequestedRangeNotSatisfiable_IfIHttpSendFilePresent(string rangeString)
+        {
+            // Arrange
+            var path = Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt"));
+            var result = new TestPhysicalFileResult(path, "text/plain");
+
+            var sendFile = new TestSendFileFeature();
+            var httpContext = GetHttpContext();
+            httpContext.Features.Set<IHttpSendFileFeature>(sendFile);
+            var context = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+            var requestHeaders = httpContext.Request.GetTypedHeaders();
+            httpContext.Request.Headers[HeaderNames.Range] = rangeString;
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            httpContext.Request.Method = HttpMethods.Get;
+            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+            // Act
+            await result.ExecuteResultAsync(actionContext);
+
+            // Assert
+            Assert.Equal(Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt")), sendFile.name);
+            Assert.Equal(0, sendFile.offset);
+            Assert.Equal(null, sendFile.length);
+            Assert.Equal(CancellationToken.None, sendFile.token);
+            var httpResponse = actionContext.HttpContext.Response;
+            var contentRange = new ContentRangeHeaderValue(34);
+            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
+            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
+            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
+            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
+            Assert.Equal(34, httpResponse.ContentLength);
+        }
+
         [Fact]
         public async Task ExecuteResultAsync_SetsSuppliedContentTypeAndEncoding()
         {
@@ -385,6 +469,24 @@ namespace Microsoft.AspNetCore.Mvc
                     Length = 34,
                     LastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0))
                 };
+            }
+        }
+
+        private class TestSendFileFeature : IHttpSendFileFeature
+        {
+            public string name = null;
+            public long offset = 0;
+            public long? length = null;
+            public CancellationToken token;
+
+            public Task SendFileAsync(string path, long offset, long? length, CancellationToken cancellation)
+            {
+                this.name = path;
+                this.offset = offset;
+                this.length = length;
+                this.token = cancellation;
+
+                return Task.FromResult(0);
             }
         }
 

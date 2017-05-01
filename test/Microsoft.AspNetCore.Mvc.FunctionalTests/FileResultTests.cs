@@ -88,6 +88,54 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.Equal("This is a sample text file", body);
         }
 
+        [ConditionalTheory]
+        // https://github.com/aspnet/Mvc/issues/2727
+        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [InlineData(0, 6, "This is")]
+        [InlineData(17, 25, "text file")]
+        [InlineData(0, 50, "This is a sample text file")]
+        public async Task FileFromDisk_CanBeEnabled_WithMiddleware_RangeRequest_WithLastModifiedAndEtag(long start, long end, string expectedBody)
+        {
+            // Arrange
+            var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromDisk_WithLastModifiedAndEtag");
+            httpRequestMessage.Headers.Range = new RangeHeaderValue(start, end);
+
+            // Act
+            var response = await Client.SendAsync(httpRequestMessage);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.PartialContent, response.StatusCode);
+            Assert.NotNull(response.Content.Headers.ContentType);
+            Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.NotNull(body);
+            Assert.Equal(expectedBody, body);
+        }
+
+        [ConditionalTheory]
+        // https://github.com/aspnet/Mvc/issues/2727
+        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [InlineData("0-6")]
+        [InlineData("bytes = 11-6")]
+        [InlineData("bytes = 1-4, 5-11")]
+        public async Task FileFromDisk_CanBeEnabled_WithMiddleware_RangeRequestNotSatisfiable_WithLastModifiedAndEtag(string rangeString)
+        {
+            // Arrange
+            var httpRequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost/DownloadFiles/DownloadFromDiskWithFileName_WithLastModifiedAndEtag");
+            httpRequestMessage.Headers.TryAddWithoutValidation("Range", rangeString);
+
+            // Act
+            var response = await Client.SendAsync(httpRequestMessage);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.RequestedRangeNotSatisfiable, response.StatusCode);
+            Assert.NotNull(response.Content.Headers.ContentType);
+            Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.NotNull(body);
+            Assert.Equal("This is a sample text file", body);
+        }
+
         [ConditionalFact]
         // https://github.com/aspnet/Mvc/issues/2727
         [FrameworkSkipCondition(RuntimeFrameworks.Mono)]

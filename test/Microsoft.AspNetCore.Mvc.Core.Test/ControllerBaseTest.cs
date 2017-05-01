@@ -1511,6 +1511,31 @@ namespace Microsoft.AspNetCore.Mvc.Core.Test
             Assert.Equal(string.Empty, result.FileDownloadName);
         }
 
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData(null, "\"Etag\"")]
+        [InlineData("05/01/2008 +1:00", null)]
+        [InlineData("05/01/2008 +1:00", "\"Etag\"")]
+        public void File_WithPath_LastModifiedAndEtag(string lastModifiedString, string entityTagString)
+        {
+            // Arrange
+            var controller = new TestableController();
+            var path = Path.GetFullPath("somepath");
+            var lastModified = (lastModifiedString == null) ? (DateTimeOffset?)null : DateTimeOffset.Parse(lastModifiedString);
+            var entityTag = (entityTagString == null) ? null : new EntityTagHeaderValue(entityTagString);
+
+            // Act
+            var result = controller.File(path, "application/pdf", lastModified, entityTag);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(path, result.FileName);
+            Assert.Equal("application/pdf", result.ContentType.ToString());
+            Assert.Equal(string.Empty, result.FileDownloadName);
+            Assert.Equal(lastModified, result.LastModified);
+            Assert.Equal(entityTag, result.EntityTag);
+        }
+
         [Fact]
         public void File_WithPathAndFileDownloadName()
         {
@@ -1526,6 +1551,31 @@ namespace Microsoft.AspNetCore.Mvc.Core.Test
             Assert.Equal(path, result.FileName);
             Assert.Equal("application/pdf", result.ContentType.ToString());
             Assert.Equal("someDownloadName", result.FileDownloadName);
+        }
+
+        [Theory]
+        [InlineData(null, null)]
+        [InlineData(null, "\"Etag\"")]
+        [InlineData("05/01/2008 +1:00", null)]
+        [InlineData("05/01/2008 +1:00", "\"Etag\"")]
+        public void File_WithPathAndFileDownloadName_LastModifiedAndEtag(string lastModifiedString, string entityTagString)
+        {
+            // Arrange
+            var controller = new TestableController();
+            var path = Path.GetFullPath("somepath");
+            var lastModified = (lastModifiedString == null) ? (DateTimeOffset?)null : DateTimeOffset.Parse(lastModifiedString);
+            var entityTag = (entityTagString == null) ? null : new EntityTagHeaderValue(entityTagString);
+
+            // Act
+            var result = controller.File(path, "application/pdf", "someDownloadName", lastModified, entityTag);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(path, result.FileName);
+            Assert.Equal("application/pdf", result.ContentType.ToString());
+            Assert.Equal("someDownloadName", result.FileDownloadName);
+            Assert.Equal(lastModified, result.LastModified);
+            Assert.Equal(entityTag, result.EntityTag);
         }
 
         [Fact]

@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc
 {
@@ -12,6 +13,8 @@ namespace Microsoft.AspNetCore.Mvc
     public abstract class FileResult : ActionResult
     {
         private string _fileDownloadName;
+        private EntityTagHeaderValue _entityTag;
+        private DateTimeOffset? _lastModified;
 
         /// <summary>
         /// Creates a new <see cref="FileResult"/> instance with
@@ -40,6 +43,24 @@ namespace Microsoft.AspNetCore.Mvc
         {
             get { return _fileDownloadName ?? string.Empty; }
             set { _fileDownloadName = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the last modified information associated with the <see cref="FileResult"/>.
+        /// </summary>
+        public DateTimeOffset? LastModified
+        {
+            get { return _lastModified ?? null; }
+            set { _lastModified = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the etag associated with the <see cref="FileResult"/>.
+        /// </summary>
+        public EntityTagHeaderValue EntityTag
+        {
+            get { return _entityTag ?? null; }
+            set { _entityTag = value; }
         }
     }
 }
