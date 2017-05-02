@@ -150,8 +150,7 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
-            Assert.Equal(33, httpResponse.ContentLength);
-            Assert.Equal("FilePathResultTestFile contents¡", body);
+            Assert.Empty(body);
         }
 
         [Fact]
@@ -356,7 +355,7 @@ namespace Microsoft.AspNetCore.Mvc
 
             // Assert
             var httpResponse = actionContext.HttpContext.Response;
-            
+
             if (!start.HasValue)
             {
                 start = 0;
@@ -375,55 +374,6 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
             Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
             Assert.Equal(contentLength, httpResponse.ContentLength);
-        }
-
-        [Theory]
-        [InlineData("0-5")]
-        [InlineData("bytes = 11-0")]
-        [InlineData("bytes = 1-4, 5-11")]
-        public async Task ExecuteResultAsync_CallsSendFileAsyncWithRequestedRangeNotSatisfiable_IfIHttpSendFilePresent(string rangeString)
-        {
-            // Arrange
-            var path = Path.Combine("TestFiles", "FilePathResultTestFile.txt");
-            var result = new TestVirtualFileResult(path, "text/plain")
-            {
-                FileProvider = GetFileProvider(path),
-            };
-
-            var sendFile = new TestSendFileFeature();
-            var httpContext = GetHttpContext();
-            httpContext.Features.Set<IHttpSendFileFeature>(sendFile);
-            var context = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
-            var appEnvironment = new Mock<IHostingEnvironment>();
-            appEnvironment.Setup(app => app.WebRootFileProvider)
-                .Returns(GetFileProvider(path));
-            httpContext.RequestServices = new ServiceCollection()
-                .AddSingleton(appEnvironment.Object)
-                .AddTransient<TestVirtualFileResultExecutor>()
-                .AddTransient<ILoggerFactory, LoggerFactory>()
-                .BuildServiceProvider();
-
-            var requestHeaders = httpContext.Request.GetTypedHeaders();
-            httpContext.Request.Headers[HeaderNames.Range] = rangeString;
-            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
-            httpContext.Request.Method = HttpMethods.Get;
-            var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
-
-            // Act
-            await result.ExecuteResultAsync(actionContext);
-
-            // Assert
-            Assert.Equal(Path.Combine("TestFiles", "FilePathResultTestFile.txt"), sendFile.name);
-            Assert.Equal(0, sendFile.offset);
-            Assert.Equal(null, sendFile.length);
-            Assert.Equal(CancellationToken.None, sendFile.token);
-            var httpResponse = actionContext.HttpContext.Response;
-            var contentRange = new ContentRangeHeaderValue(33);
-            Assert.Equal(StatusCodes.Status416RangeNotSatisfiable, httpResponse.StatusCode);
-            Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
-            Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
-            Assert.NotEmpty(httpResponse.Headers[HeaderNames.LastModified]);
-            Assert.Equal(33, httpResponse.ContentLength);
         }
 
         [Fact]

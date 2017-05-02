@@ -189,8 +189,7 @@ namespace Microsoft.AspNetCore.Mvc
             Assert.Equal(contentRange.ToString(), httpResponse.Headers[HeaderNames.ContentRange]);
             Assert.Equal(lastModified.ToString("R"), httpResponse.Headers[HeaderNames.LastModified]);
             Assert.Equal(entityTag.ToString(), httpResponse.Headers[HeaderNames.ETag]);
-            Assert.Equal(byteArray.Length, httpResponse.ContentLength);
-            Assert.Equal("Hello World", body);
+            Assert.Empty(body);
         }
 
         [Fact]

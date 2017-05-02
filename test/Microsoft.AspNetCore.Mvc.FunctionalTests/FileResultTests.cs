@@ -84,8 +84,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
             var body = await response.Content.ReadAsStringAsync();
-            Assert.NotNull(body);
-            Assert.Equal("This is a sample text file", body);
+            Assert.Empty(body);
         }
 
         [ConditionalTheory]
@@ -132,8 +131,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
             var body = await response.Content.ReadAsStringAsync();
-            Assert.NotNull(body);
-            Assert.Equal("This is a sample text file", body);
+            Assert.Empty(body);
         }
 
         [ConditionalFact]
@@ -216,8 +214,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
             var body = await response.Content.ReadAsStringAsync();
-            Assert.NotNull(body);
-            Assert.Equal("This is sample text from a stream", body);
+            Assert.Empty(body);
         }
 
         [Fact]
@@ -298,8 +295,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
             var body = await response.Content.ReadAsStringAsync();
-            Assert.NotNull(body);
-            Assert.Equal("This is a sample text from a binary array", body);
+            Assert.Empty(body);
         }
 
         [Fact]
@@ -390,8 +386,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.NotNull(response.Content.Headers.ContentType);
             Assert.Equal("text/plain", response.Content.Headers.ContentType.ToString());
             var body = await response.Content.ReadAsStringAsync();
-            Assert.NotNull(body);
-            Assert.Equal("Sample text file as embedded resource.", body);
+            Assert.Empty(body);
             var contentDisposition = response.Content.Headers.ContentDisposition.ToString();
             Assert.NotNull(contentDisposition);
             Assert.Equal("attachment; filename=downloadName.txt; filename*=UTF-8''downloadName.txt", contentDisposition);

@@ -5,7 +5,6 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Extensions.Logging;
@@ -24,31 +23,31 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
         {
-            RangeItemHeaderValue range;
-            long rangeLength;
-            bool returnEmptyBody;
             var fileInfo = GetFileInfo(result.FileName);
             if (fileInfo.Exists)
             {
                 var lastModified = result.LastModified == null ? fileInfo.LastModified : result.LastModified;
-                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(
+                var (range, rangeLength, serveBody) = SetHeadersAndLog(
                     context,
                     result,
                     fileInfo.Length,
                     lastModified,
                     result.EntityTag);
+                if (serveBody)
+                {
+                    return WriteFileAsync(context, result, range, rangeLength);
+                }
             }
             else
             {
-                (range, rangeLength, returnEmptyBody) = SetHeadersAndLog(context, result, null, result.LastModified, result.EntityTag);
+                var (range, rangeLength, serveBody) = SetHeadersAndLog(context, result, null, result.LastModified, result.EntityTag);
+                if (serveBody)
+                {
+                    return WriteFileAsync(context, result, range, rangeLength);
+                }
             }
 
-            if (returnEmptyBody)
-            {
-                return Task.CompletedTask;
-            }
-
-            return WriteFileAsync(context, result, range, rangeLength);
+            return Task.CompletedTask;
         }
 
         private async Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
@@ -84,37 +83,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                using (var fileStream = GetFileStream(result.FileName))
-                {
-                    if (range == null || !fileStream.CanSeek)
-                    {
-                        try
-                        {
-                            fileStream.Seek(0, SeekOrigin.Begin);
-                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, null, DefaultBufferSize, context.HttpContext.RequestAborted);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Don't throw this exception, it's most likely caused by the client disconnecting.
-                            // However, if it was cancelled for any other reason we need to prevent empty responses.
-                            context.HttpContext.Abort();
-                        }
-                    }
-                    else
-                    {
-                        try
-                        {
-                            fileStream.Seek(range.From.Value, SeekOrigin.Begin);
-                            await StreamCopyOperation.CopyToAsync(fileStream, response.Body, rangeLength, DefaultBufferSize, context.HttpContext.RequestAborted);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            // Don't throw this exception, it's most likely caused by the client disconnecting.
-                            // However, if it was cancelled for any other reason we need to prevent empty responses.
-                            context.HttpContext.Abort();
-                        }
-                    }
-                }
+                await WriteFileAsync(context.HttpContext, GetFileStream(result.FileName), range, rangeLength);
             }
         }
 

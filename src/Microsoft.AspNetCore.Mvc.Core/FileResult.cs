@@ -13,8 +13,6 @@ namespace Microsoft.AspNetCore.Mvc
     public abstract class FileResult : ActionResult
     {
         private string _fileDownloadName;
-        private EntityTagHeaderValue _entityTag;
-        private DateTimeOffset? _lastModified;
 
         /// <summary>
         /// Creates a new <see cref="FileResult"/> instance with
@@ -48,19 +46,11 @@ namespace Microsoft.AspNetCore.Mvc
         /// <summary>
         /// Gets or sets the last modified information associated with the <see cref="FileResult"/>.
         /// </summary>
-        public DateTimeOffset? LastModified
-        {
-            get { return _lastModified ?? null; }
-            set { _lastModified = value; }
-        }
+        public DateTimeOffset? LastModified { get; set; }
 
         /// <summary>
         /// Gets or sets the etag associated with the <see cref="FileResult"/>.
         /// </summary>
-        public EntityTagHeaderValue EntityTag
-        {
-            get { return _entityTag ?? null; }
-            set { _entityTag = value; }
-        }
+        public EntityTagHeaderValue EntityTag { get; set; }
     }
 }
