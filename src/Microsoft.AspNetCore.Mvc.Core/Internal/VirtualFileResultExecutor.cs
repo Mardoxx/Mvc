@@ -16,7 +16,6 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 {
     public class VirtualFileResultExecutor : FileResultExecutorBase
     {
-        private const int DefaultBufferSize = 0x1000;
         private readonly IHostingEnvironment _hostingEnvironment;
 
         public VirtualFileResultExecutor(ILoggerFactory loggerFactory, IHostingEnvironment hostingEnvironment)
@@ -35,7 +34,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var fileInfo = GetFileInformation(result);
             if (fileInfo.Exists)
             {
-                var lastModified = result.LastModified == null ? fileInfo.LastModified : result.LastModified;
+                var lastModified = result.LastModified ?? fileInfo.LastModified;
                 var (range, rangeLength, serveBody) = SetHeadersAndLog(
                     context,
                     result,
@@ -49,17 +48,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                var (range, rangeLength, serveBody) = SetHeadersAndLog(context, result, null, result.LastModified, result.EntityTag);
-                if (serveBody)
-                {
-                    return WriteFileAsync(context, result, fileInfo, range, rangeLength);
-                }
+                throw new FileNotFoundException(
+                    Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
             }
 
             return Task.CompletedTask;
         }
 
-        private async Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
+        private Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
             if (!fileInfo.Exists)
@@ -71,7 +67,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 if (range != null && rangeLength == 0)
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
                 var physicalPath = fileInfo.PhysicalPath;
                 var sendFile = response.HttpContext.Features.Get<IHttpSendFileFeature>();
@@ -79,15 +75,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 {
                     if (range != null)
                     {
-                        await sendFile.SendFileAsync(
+                        return sendFile.SendFileAsync(
                             physicalPath,
-                            offset: (range.From.HasValue) ? range.From.Value : 0L,
+                            offset: range.From ?? 0L,
                             count: rangeLength,
                             cancellation: default(CancellationToken));
                     }
                     else
                     {
-                        await sendFile.SendFileAsync(
+                        return sendFile.SendFileAsync(
                             physicalPath,
                             offset: 0,
                             count: null,
@@ -96,7 +92,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 }
                 else
                 {
-                    await WriteFileAsync(context.HttpContext, GetFileStream(fileInfo), range, rangeLength);
+                    return WriteFileAsync(context.HttpContext, GetFileStream(fileInfo), range, rangeLength);
                 }
             }
         }

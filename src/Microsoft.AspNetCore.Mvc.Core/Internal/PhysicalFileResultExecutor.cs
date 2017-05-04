@@ -14,8 +14,6 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 {
     public class PhysicalFileResultExecutor : FileResultExecutorBase
     {
-        private const int DefaultBufferSize = 0x1000;
-
         public PhysicalFileResultExecutor(ILoggerFactory loggerFactory)
             : base(CreateLogger<PhysicalFileResultExecutor>(loggerFactory))
         {
@@ -26,7 +24,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var fileInfo = GetFileInfo(result.FileName);
             if (fileInfo.Exists)
             {
-                var lastModified = result.LastModified == null ? fileInfo.LastModified : result.LastModified;
+                var lastModified = result.LastModified ?? fileInfo.LastModified;
                 var (range, rangeLength, serveBody) = SetHeadersAndLog(
                     context,
                     result,
@@ -40,17 +38,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                var (range, rangeLength, serveBody) = SetHeadersAndLog(context, result, null, result.LastModified, result.EntityTag);
-                if (serveBody)
-                {
-                    return WriteFileAsync(context, result, range, rangeLength);
-                }
+                throw new FileNotFoundException(
+                    Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
             }
 
             return Task.CompletedTask;
         }
 
-        private async Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
+        private Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
             if (!Path.IsPathRooted(result.FileName))
@@ -59,22 +54,22 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             if (range != null && rangeLength == 0)
             {
-                return;
+                return Task.CompletedTask;
             }
             var sendFile = response.HttpContext.Features.Get<IHttpSendFileFeature>();
             if (sendFile != null)
             {
                 if (range != null)
                 {
-                    await sendFile.SendFileAsync(
+                    return sendFile.SendFileAsync(
                         result.FileName,
-                        offset: (range.From.HasValue) ? range.From.Value : 0L,
+                        offset: range.From ?? 0L,
                         count: rangeLength,
                         cancellation: default(CancellationToken));
                 }
                 else
                 {
-                    await sendFile.SendFileAsync(
+                    return sendFile.SendFileAsync(
                         result.FileName,
                         offset: 0,
                         count: null,
@@ -83,7 +78,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
             else
             {
-                await WriteFileAsync(context.HttpContext, GetFileStream(result.FileName), range, rangeLength);
+                return WriteFileAsync(context.HttpContext, GetFileStream(result.FileName), range, rangeLength);
             }
         }
 
@@ -99,14 +94,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     FileMode.Open,
                     FileAccess.Read,
                     FileShare.ReadWrite,
-                    DefaultBufferSize,
+                    BufferSize,
                     FileOptions.Asynchronous | FileOptions.SequentialScan);
         }
 
-        protected virtual FileInfo GetFileInfo(string path)
+        protected virtual FileMetadata GetFileInfo(string path)
         {
-            var fileInfo = new System.IO.FileInfo(path);
-            return new FileInfo
+            var fileInfo = new FileInfo(path);
+            return new FileMetadata
             {
                 Exists = fileInfo.Exists,
                 Length = fileInfo.Length,
@@ -114,7 +109,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             };
         }
 
-        protected class FileInfo
+        protected class FileMetadata
         {
             public bool Exists { get; set; }
 

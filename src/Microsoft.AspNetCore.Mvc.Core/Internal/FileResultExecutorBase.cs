@@ -19,6 +19,9 @@ namespace Microsoft.AspNetCore.Mvc.Internal
     {
         private const string AcceptRangeHeaderValue = "bytes";
 
+        // default buffer size as defined in BufferedStream type
+        protected const int BufferSize = 0x1000;
+
         public FileResultExecutorBase(ILogger logger)
         {
             Logger = logger;
@@ -57,7 +60,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 httpResponseHeaders.ETag = etag;
             }
 
-            var preconditionState = CheckPreconditionHeaders(
+            var preconditionState = GetPreconditionState(
                     context,
                     httpRequestHeaders,
                     lastModified,
@@ -67,44 +70,42 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 serveBody = false;
             }
-            else
-            {
-                if (request.Headers.ContainsKey(HeaderNames.Range))
-                {
-                    if (preconditionState.Equals(PreconditionState.Unspecified) ||
-                        preconditionState.Equals(PreconditionState.ShouldProcess))
-                    {
-                        var rangeInfo = SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
-                        if (response.StatusCode == StatusCodes.Status416RangeNotSatisfiable)
-                        {
-                            serveBody = false;
-                        }
-                        return (rangeInfo.range, rangeInfo.rangeLength, serveBody);
-                    }
-                }
 
-                if (preconditionState.Equals(PreconditionState.NotModified))
+            if (request.Headers.ContainsKey(HeaderNames.Range))
+            {
+                if (preconditionState == PreconditionState.Unspecified ||
+                    preconditionState == PreconditionState.ShouldProcess)
                 {
-                    serveBody = false;
-                    response.StatusCode = StatusCodes.Status304NotModified;
-                }
-                else if (preconditionState.Equals(PreconditionState.PreconditionFailed))
-                {
-                    serveBody = false;
-                    response.StatusCode = StatusCodes.Status412PreconditionFailed;
+                    var rangeInfo = SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
+                    if (response.StatusCode == StatusCodes.Status416RangeNotSatisfiable)
+                    {
+                        serveBody = false;
+                    }
+                    return (rangeInfo.range, rangeInfo.rangeLength, serveBody);
                 }
             }
 
-            return (null, 0, serveBody);
+            if (preconditionState == PreconditionState.NotModified)
+            {
+                serveBody = false;
+                response.StatusCode = StatusCodes.Status304NotModified;
+            }
+            else if (preconditionState == PreconditionState.PreconditionFailed)
+            {
+                serveBody = false;
+                response.StatusCode = StatusCodes.Status412PreconditionFailed;
+            }
+
+            return (range: null, rangeLength: 0, serveBody: serveBody);
         }
 
-        private void SetContentType(ActionContext context, FileResult result)
+        private static void SetContentType(ActionContext context, FileResult result)
         {
             var response = context.HttpContext.Response;
             response.ContentType = result.ContentType;
         }
 
-        private void SetContentDispositionHeader(ActionContext context, FileResult result)
+        private static void SetContentDispositionHeader(ActionContext context, FileResult result)
         {
             if (!string.IsNullOrEmpty(result.FileDownloadName))
             {
@@ -119,14 +120,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             }
         }
 
-        private void SetAcceptRangeHeader(ActionContext context)
+        private static void SetAcceptRangeHeader(ActionContext context)
         {
             var response = context.HttpContext.Response;
             response.Headers[HeaderNames.AcceptRanges] = AcceptRangeHeaderValue;
         }
 
         // Internal for testing
-        internal static PreconditionState CheckPreconditionHeaders(
+        internal static PreconditionState GetPreconditionState(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
             DateTimeOffset? lastModified = null,
@@ -202,7 +203,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return max;
         }
 
-        private (RangeItemHeaderValue range, long rangeLength) SetRangeHeaders(
+        private static (RangeItemHeaderValue range, long rangeLength) SetRangeHeaders(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
             long? fileLength,
@@ -236,7 +237,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return (range, rangeLength);
         }
 
-        private long SetContentLength(ActionContext context, RangeItemHeaderValue range)
+        private static long SetContentLength(ActionContext context, RangeItemHeaderValue range)
         {
             var start = range.From.Value;
             var end = range.To.Value;
@@ -246,7 +247,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return length;
         }
 
-        private RangeItemHeaderValue ParseRange(
+        private static RangeItemHeaderValue ParseRange(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
             long fileLength,
@@ -265,15 +266,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             if (range != null)
             {
                 var rangeValue = range.Single();
-                long? from = rangeValue.From.HasValue ? rangeValue.From.Value : 0;
-                long? to = rangeValue.To.HasValue ? rangeValue.To.Value : fileLength;
+                long? from = rangeValue.From ?? 0L;
+                long? to = rangeValue.To ?? fileLength;
                 var rangeItemHeaderValue = new RangeItemHeaderValue(from, to);
                 var ranges = new List<RangeItemHeaderValue>
                 {
                     rangeItemHeaderValue,
                 };
                 var normalizedRanges = RangeHelper.NormalizeRanges(ranges, fileLength);
-                if (normalizedRanges == null || normalizedRanges == Array.Empty<RangeItemHeaderValue>())
+                if (normalizedRanges == null || normalizedRanges.Count == 0)
                 {
                     return null;
                 }
@@ -296,39 +297,26 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected static async Task WriteFileAsync(HttpContext context, Stream fileStream, RangeItemHeaderValue range, long rangeLength)
         {
-            var BufferSize = 0x1000;
             var outputStream = context.Response.Body;
             using (fileStream)
             {
-                if (range == null)
+                try
                 {
-                    try
+                    if (range == null)
                     {
-                        await StreamCopyOperation.CopyToAsync(fileStream, outputStream, null, BufferSize, context.RequestAborted);
+                        await StreamCopyOperation.CopyToAsync(fileStream, outputStream, count: null, bufferSize: BufferSize, cancel: context.RequestAborted);
                     }
-
-                    catch (OperationCanceledException)
-                    {
-                        // Don't throw this exception, it's most likely caused by the client disconnecting.
-                        // However, if it was cancelled for any other reason we need to prevent empty responses.
-                        context.Abort();
-                    }
-                }
-
-                else
-                {
-                    try
+                    else
                     {
                         fileStream.Seek(range.From.Value, SeekOrigin.Begin);
                         await StreamCopyOperation.CopyToAsync(fileStream, outputStream, rangeLength, BufferSize, context.RequestAborted);
                     }
-
-                    catch (OperationCanceledException)
-                    {
-                        // Don't throw this exception, it's most likely caused by the client disconnecting.
-                        // However, if it was cancelled for any other reason we need to prevent empty responses.
-                        context.Abort();
-                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // Don't throw this exception, it's most likely caused by the client disconnecting.
+                    // However, if it was cancelled for any other reason we need to prevent empty responses.
+                    context.Abort();
                 }
             }
         }

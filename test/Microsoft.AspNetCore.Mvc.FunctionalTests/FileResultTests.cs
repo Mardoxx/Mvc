@@ -40,9 +40,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.Equal("This is a sample text file", body);
         }
 
-        [ConditionalTheory]
-        // https://github.com/aspnet/Mvc/issues/2727
-        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [Theory]
         [InlineData(0, 6, "This is")]
         [InlineData(17, 25, "text file")]
         [InlineData(0, 50, "This is a sample text file")]
@@ -64,9 +62,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.Equal(expectedBody, body);
         }
 
-        [ConditionalTheory]
-        // https://github.com/aspnet/Mvc/issues/2727
-        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [Theory]
         [InlineData("0-6")]
         [InlineData("bytes = 11-6")]
         [InlineData("bytes = 1-4, 5-11")]
@@ -87,9 +83,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.Empty(body);
         }
 
-        [ConditionalTheory]
-        // https://github.com/aspnet/Mvc/issues/2727
-        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [Theory]
         [InlineData(0, 6, "This is")]
         [InlineData(17, 25, "text file")]
         [InlineData(0, 50, "This is a sample text file")]
@@ -111,9 +105,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
             Assert.Equal(expectedBody, body);
         }
 
-        [ConditionalTheory]
-        // https://github.com/aspnet/Mvc/issues/2727
-        [FrameworkSkipCondition(RuntimeFrameworks.Mono)]
+        [Theory]
         [InlineData("0-6")]
         [InlineData("bytes = 11-6")]
         [InlineData("bytes = 1-4, 5-11")]

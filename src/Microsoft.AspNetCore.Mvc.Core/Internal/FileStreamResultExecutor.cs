@@ -9,9 +9,6 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 {
     public class FileStreamResultExecutor : FileResultExecutorBase
     {
-        // default buffer size as defined in BufferedStream type
-        private const int BufferSize = 0x1000;
-
         public FileStreamResultExecutor(ILoggerFactory loggerFactory)
             : base(CreateLogger<VirtualFileResultExecutor>(loggerFactory))
         {
@@ -40,15 +37,16 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return WriteFileAsync(context, result, range, rangeLength);
         }
 
-        private static async Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
+        private Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
         {
             var response = context.HttpContext.Response;
             var outputStream = response.Body;
             if (range != null && rangeLength == 0)
             {
-                return;
+                return Task.CompletedTask;
             }
-            await WriteFileAsync(context.HttpContext, result.FileStream, range, rangeLength);
+
+            return WriteFileAsync(context.HttpContext, result.FileStream, range, rangeLength);
         }
     }
 }

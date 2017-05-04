@@ -79,7 +79,7 @@ namespace Microsoft.AspNetCore.Mvc
 
             var requestHeaders = httpContext.Request.GetTypedHeaders();
             requestHeaders.Range = new RangeHeaderValue(start, end);
-            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.MinValue.AddDays(1);
             httpContext.Request.Method = HttpMethods.Get;
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
@@ -91,14 +91,8 @@ namespace Microsoft.AspNetCore.Mvc
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            if (!start.HasValue)
-            {
-                start = 0;
-            }
-            if (!end.HasValue)
-            {
-                end = 32;
-            }
+            start = start ?? 0;
+            end = end ?? 32;
             var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 33);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
@@ -132,7 +126,7 @@ namespace Microsoft.AspNetCore.Mvc
 
             var requestHeaders = httpContext.Request.GetTypedHeaders();
             httpContext.Request.Headers[HeaderNames.Range] = rangeString;
-            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.MinValue.AddDays(1);
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
@@ -215,7 +209,7 @@ namespace Microsoft.AspNetCore.Mvc
                 .BuildServiceProvider();
 
             var requestHeaders = httpContext.Request.GetTypedHeaders();
-            requestHeaders.IfModifiedSince = DateTimeOffset.UtcNow;
+            requestHeaders.IfModifiedSince = DateTimeOffset.MinValue.AddDays(1);
             httpContext.Request.Headers[HeaderNames.Range] = "bytes = 0-6";
             httpContext.Request.Method = HttpMethods.Get;
             httpContext.Response.Body = new MemoryStream();
@@ -346,7 +340,7 @@ namespace Microsoft.AspNetCore.Mvc
 
             var requestHeaders = httpContext.Request.GetTypedHeaders();
             requestHeaders.Range = new RangeHeaderValue(start, end);
-            requestHeaders.IfUnmodifiedSince = DateTimeOffset.Now;
+            requestHeaders.IfUnmodifiedSince = DateTimeOffset.MinValue.AddDays(1);
             httpContext.Request.Method = HttpMethods.Get;
             var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
 
@@ -355,19 +349,12 @@ namespace Microsoft.AspNetCore.Mvc
 
             // Assert
             var httpResponse = actionContext.HttpContext.Response;
-
-            if (!start.HasValue)
-            {
-                start = 0;
-            }
-            if (!end.HasValue)
-            {
-                end = 32;
-            }
-            Assert.Equal(Path.Combine("TestFiles", "FilePathResultTestFile.txt"), sendFile.name);
-            Assert.Equal(start, sendFile.offset);
-            Assert.Equal(contentLength, sendFile.length);
-            Assert.Equal(CancellationToken.None, sendFile.token);
+            start = start ?? 0;
+            end = end ?? 32;
+            Assert.Equal(Path.Combine("TestFiles", "FilePathResultTestFile.txt"), sendFile.Name);
+            Assert.Equal(start, sendFile.Offset);
+            Assert.Equal(contentLength, sendFile.Length);
+            Assert.Equal(CancellationToken.None, sendFile.Token);
             var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 33);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
@@ -570,7 +557,7 @@ namespace Microsoft.AspNetCore.Mvc
             var fileInfo = new Mock<IFileInfo>();
             fileInfo.SetupGet(fi => fi.Length).Returns(33);
             fileInfo.SetupGet(fi => fi.Exists).Returns(true);
-            var lastModified = DateTimeOffset.UtcNow;
+            var lastModified = DateTimeOffset.MinValue.AddDays(1);
             lastModified = new DateTimeOffset(lastModified.Year, lastModified.Month, lastModified.Day, lastModified.Hour, lastModified.Minute, lastModified.Second, TimeSpan.FromSeconds(0));
             fileInfo.SetupGet(fi => fi.LastModified).Returns(lastModified);
             fileInfo.SetupGet(fi => fi.PhysicalPath).Returns(path);
@@ -623,17 +610,17 @@ namespace Microsoft.AspNetCore.Mvc
 
         private class TestSendFileFeature : IHttpSendFileFeature
         {
-            public string name = null;
-            public long offset = 0;
-            public long? length = null;
-            public CancellationToken token;
+            public string Name { get; set; }
+            public long Offset { get; set; }
+            public long? Length { get; set; }
+            public CancellationToken Token { get; set; }
 
             public Task SendFileAsync(string path, long offset, long? length, CancellationToken cancellation)
             {
-                this.name = path;
-                this.offset = offset;
-                this.length = length;
-                this.token = cancellation;
+                Name = path;
+                Offset = offset;
+                Length = length;
+                Token = cancellation;
 
                 return Task.FromResult(0);
             }

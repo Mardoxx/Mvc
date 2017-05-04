@@ -28,7 +28,7 @@ namespace FilesWebSite
         public IActionResult DownloadFromDisk_WithLastModifiedAndEtag()
         {
             var path = Path.Combine(_hostingEnvironment.ContentRootPath, "sample.txt");
-            var lastModified = DateTimeOffset.Parse("05/01/2008 +1:00");
+            var lastModified = new DateTimeOffset(year: 1999, month: 11, day: 04, hour: 3, minute: 0, second: 0, offset: new TimeSpan(0));
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             return PhysicalFile(path, "text/plain", lastModified, entityTag);
         }
@@ -42,7 +42,7 @@ namespace FilesWebSite
         public IActionResult DownloadFromDiskWithFileName_WithLastModifiedAndEtag()
         {
             var path = Path.Combine(_hostingEnvironment.ContentRootPath, "sample.txt");
-            var lastModified = DateTimeOffset.Parse("05/01/2008 +1:00");
+            var lastModified = new DateTimeOffset(year: 1999, month: 11, day: 04, hour: 3, minute: 0, second: 0, offset: new TimeSpan(0));
             var entityTag = new EntityTagHeaderValue("\"Etag\"");
             return PhysicalFile(path, "text/plain", "downloadName.txt", lastModified, entityTag);
         }
