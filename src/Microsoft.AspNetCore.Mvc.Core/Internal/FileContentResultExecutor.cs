@@ -34,14 +34,14 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         private Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue range, long rangeLength)
         {
-            var response = context.HttpContext.Response;
-            var outputStream = response.Body;
-            var fileContentsStream = new MemoryStream(result.FileContents);
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;
             }
 
+            var response = context.HttpContext.Response;
+            var outputStream = response.Body;
+            var fileContentsStream = new MemoryStream(result.FileContents);
             return WriteFileAsync(context.HttpContext, fileContentsStream, range, rangeLength);
         }
     }

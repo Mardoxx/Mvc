@@ -39,13 +39,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         private Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
         {
-            var response = context.HttpContext.Response;
-            var outputStream = response.Body;
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;
             }
 
+            var response = context.HttpContext.Response;
+            var outputStream = response.Body;
             return WriteFileAsync(context.HttpContext, result.FileStream, range, rangeLength);
         }
     }

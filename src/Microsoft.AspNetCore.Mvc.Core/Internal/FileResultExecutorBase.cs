@@ -60,11 +60,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 httpResponseHeaders.ETag = etag;
             }
 
-            var preconditionState = GetPreconditionState(
-                    context,
-                    httpRequestHeaders,
-                    lastModified,
-                    etag);
+            var preconditionState = GetPreconditionState(context, httpRequestHeaders, lastModified, etag);
             var serveBody = true;
             if (HttpMethods.IsHead(request.Method))
             {
@@ -76,12 +72,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 if (preconditionState == PreconditionState.Unspecified ||
                     preconditionState == PreconditionState.ShouldProcess)
                 {
-                    var rangeInfo = SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
-                    if (response.StatusCode == StatusCodes.Status416RangeNotSatisfiable)
-                    {
-                        serveBody = false;
-                    }
-                    return (rangeInfo.range, rangeInfo.rangeLength, serveBody);
+                    return SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
                 }
             }
 
@@ -203,7 +194,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return max;
         }
 
-        private static (RangeItemHeaderValue range, long rangeLength) SetRangeHeaders(
+        private static (RangeItemHeaderValue range, long rangeLength, bool serveBody) SetRangeHeaders(
             ActionContext context,
             RequestHeaders httpRequestHeaders,
             long? fileLength,
@@ -212,7 +203,10 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         {
             var response = context.HttpContext.Response;
             var httpResponseHeaders = response.GetTypedHeaders();
-            var range = fileLength == null ? null : ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag);
+
+            // Checked for presence of Range header explicitly before calling this method.
+            // Range may be null for parsing errors, multiple ranges and when the file length is missing.
+            var range = fileLength.HasValue ? ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag) : null;
             var rangeNotSatisfiable = range == null;
             if (rangeNotSatisfiable)
             {
@@ -224,7 +218,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 {
                     httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(fileLength.Value);
                 }
-                return (null, fileLength.Value);
+                return (range: null, rangeLength: fileLength.Value, serveBody: false);
             }
 
             httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(
@@ -234,7 +228,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             response.StatusCode = StatusCodes.Status206PartialContent;
             var rangeLength = SetContentLength(context, range);
-            return (range, rangeLength);
+            return (range, rangeLength, serveBody: true);
         }
 
         private static long SetContentLength(ActionContext context, RangeItemHeaderValue range)
@@ -257,11 +251,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             var httpContext = context.HttpContext;
             var response = httpContext.Response;
 
-            var range = RangeHelper.ParseRange(
-                httpContext,
-                httpRequestHeaders,
-                lastModified,
-                etag);
+            var range = RangeHelper.ParseRange(httpContext, httpRequestHeaders, lastModified, etag);
 
             if (range != null)
             {
@@ -302,7 +292,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 try
                 {
-                    if (range == null)
+                    if (range == null || !fileStream.CanSeek)
                     {
                         await StreamCopyOperation.CopyToAsync(fileStream, outputStream, count: null, bufferSize: BufferSize, cancel: context.RequestAborted);
                     }

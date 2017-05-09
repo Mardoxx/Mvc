@@ -1135,8 +1135,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the specified <paramref name="fileContents" /> as content
-        /// (<see cref="StatusCodes.Status200OK"/>) and the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns a file with the specified <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status200OK"/>),
+        /// and the specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileContents">The file contents.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1149,8 +1151,9 @@ namespace Microsoft.AspNetCore.Mvc
 
         /// <summary>
         /// Returns a file with the specified <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status200OK"/>), the
-        /// specified <paramref name="contentType" /> as the Content-Type and the
-        /// specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// specified <paramref name="contentType" /> as the Content-Type and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileContents">The file contents.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1163,8 +1166,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the specified range in the given <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns a file with the specified <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status200OK"/>), 
+        /// and the specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileContents">The file contents.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1182,9 +1187,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the specified range in the given <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), the specified <paramref name="contentType" /> as the Content-Type,
-        /// and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// Returns a file with the specified <paramref name="fileContents" /> as content (<see cref="StatusCodes.Status200OK"/>), the 
+        /// specified <paramref name="contentType" /> as the Content-Type, and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileContents">The file contents.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1204,8 +1210,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>)
-        /// with the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>), with the 
+        /// specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1220,6 +1228,8 @@ namespace Microsoft.AspNetCore.Mvc
         /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>) with the
         /// specified <paramref name="contentType" /> as the Content-Type and the
         /// specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1232,8 +1242,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the specified range in the given <paramref name="fileStream" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>), 
+        /// and the specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1251,9 +1263,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the specified range in the given <paramref name="fileStream" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), the specified <paramref name="contentType" /> as the Content-Type,
-        /// and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// Returns a file in the specified <paramref name="fileStream" /> (<see cref="StatusCodes.Status200OK"/>), the 
+        /// specified <paramref name="contentType" /> as the Content-Type, and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="fileStream">The <see cref="Stream"/> with the contents of the file.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1275,6 +1288,8 @@ namespace Microsoft.AspNetCore.Mvc
         /// <summary>
         /// Returns the file specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status200OK"/>) with the
         /// specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="virtualPath">The virtual path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1289,6 +1304,8 @@ namespace Microsoft.AspNetCore.Mvc
         /// Returns the file specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status200OK"/>) with the
         /// specified <paramref name="contentType" /> as the Content-Type and the
         /// specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="virtualPath">The virtual path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1301,8 +1318,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the given range specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns the file specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status200OK"/>), and the 
+        /// specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="virtualPath">The virtual path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1320,9 +1339,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the given range specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), the specified <paramref name="contentType" /> as the Content-Type,
-        /// and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// Returns the file specified by <paramref name="virtualPath" /> (<see cref="StatusCodes.Status200OK"/>), the 
+        /// specified <paramref name="contentType" /> as the Content-Type, and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="virtualPath">The virtual path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1344,6 +1364,8 @@ namespace Microsoft.AspNetCore.Mvc
         /// <summary>
         /// Returns the file specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status200OK"/>) with the
         /// specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="physicalPath">The physical path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1358,6 +1380,8 @@ namespace Microsoft.AspNetCore.Mvc
         /// Returns the file specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status200OK"/>) with the
         /// specified <paramref name="contentType" /> as the Content-Type and the
         /// specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="physicalPath">The physical path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1373,8 +1397,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the given range specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), and the specified <paramref name="contentType" /> as the Content-Type.
+        /// Returns the file specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status200OK"/>), and 
+        /// the specified <paramref name="contentType" /> as the Content-Type.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="physicalPath">The physical path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>
@@ -1392,9 +1418,10 @@ namespace Microsoft.AspNetCore.Mvc
         }
 
         /// <summary>
-        /// Returns a file with the given range specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status206PartialContent"/> or
-        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable), the specified <paramref name="contentType" /> as the Content-Type,
-        /// and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// Returns the file specified by <paramref name="physicalPath" /> (<see cref="StatusCodes.Status200OK"/>), the 
+        /// specified <paramref name="contentType" /> as the Content-Type, and the specified <paramref name="fileDownloadName" /> as the suggested file name.
+        /// This supports range requests (<see cref="StatusCodes.Status206PartialContent"/> or
+        /// <see cref="StatusCodes.Status416RangeNotSatisfiable"/> if the range is not satisfiable).
         /// </summary>
         /// <param name="physicalPath">The physical path of the file to be returned.</param>
         /// <param name="contentType">The Content-Type of the file.</param>

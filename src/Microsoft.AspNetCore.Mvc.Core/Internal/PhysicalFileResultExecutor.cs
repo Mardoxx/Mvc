@@ -22,24 +22,22 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         public Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
         {
             var fileInfo = GetFileInfo(result.FileName);
-            if (fileInfo.Exists)
-            {
-                var lastModified = result.LastModified ?? fileInfo.LastModified;
-                var (range, rangeLength, serveBody) = SetHeadersAndLog(
-                    context,
-                    result,
-                    fileInfo.Length,
-                    lastModified,
-                    result.EntityTag);
-                if (serveBody)
-                {
-                    return WriteFileAsync(context, result, range, rangeLength);
-                }
-            }
-            else
+            if (!fileInfo.Exists)
             {
                 throw new FileNotFoundException(
                     Resources.FormatFileResult_InvalidPath(result.FileName), result.FileName);
+            }
+
+            var lastModified = result.LastModified ?? fileInfo.LastModified;
+            var (range, rangeLength, serveBody) = SetHeadersAndLog(
+                context,
+                result,
+                fileInfo.Length,
+                lastModified,
+                result.EntityTag);
+            if (serveBody)
+            {
+                return WriteFileAsync(context, result, range, rangeLength);
             }
 
             return Task.CompletedTask;
@@ -47,14 +45,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         private Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
         {
+            if (range != null && rangeLength == 0)
+            {
+                return Task.CompletedTask;
+            }
+
             var response = context.HttpContext.Response;
             if (!Path.IsPathRooted(result.FileName))
             {
                 throw new NotSupportedException(Resources.FormatFileResult_PathNotRooted(result.FileName));
-            }
-            if (range != null && rangeLength == 0)
-            {
-                return Task.CompletedTask;
             }
             var sendFile = response.HttpContext.Features.Get<IHttpSendFileFeature>();
             if (sendFile != null)
