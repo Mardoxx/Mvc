@@ -218,7 +218,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 {
                     httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(fileLength.Value);
                 }
-                return (range: null, rangeLength: fileLength.Value, serveBody: false);
+                return (range: null, rangeLength: 0, serveBody: false);
             }
 
             httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(
@@ -292,7 +292,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 try
                 {
-                    if (range == null || !fileStream.CanSeek)
+                    if (range == null)
                     {
                         await StreamCopyOperation.CopyToAsync(fileStream, outputStream, count: null, bufferSize: BufferSize, cancel: context.RequestAborted);
                     }

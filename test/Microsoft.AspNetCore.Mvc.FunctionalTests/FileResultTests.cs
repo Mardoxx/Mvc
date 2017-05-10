@@ -338,7 +338,7 @@ namespace Microsoft.AspNetCore.Mvc.FunctionalTests
         [Theory]
         [InlineData(0, 6, "Sample ")]
         [InlineData(20, 37, "embedded resource.")]
-        [InlineData(0, 50, "Sample text file as embedded resource.")]
+        [InlineData(7, 50, "text file as embedded resource.")]
         public async Task FileFromEmbeddedResources_ReturnsFileWithFileName_RangeRequest(long start, long end, string expectedBody)
         {
             // Arrange
