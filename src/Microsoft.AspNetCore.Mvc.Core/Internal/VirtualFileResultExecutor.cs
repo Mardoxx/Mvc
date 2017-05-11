@@ -73,19 +73,15 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                         count: rangeLength,
                         cancellation: default(CancellationToken));
                 }
-                else
-                {
-                    return sendFile.SendFileAsync(
-                        physicalPath,
-                        offset: 0,
-                        count: null,
-                        cancellation: default(CancellationToken));
-                }
+
+                return sendFile.SendFileAsync(
+                    physicalPath,
+                    offset: 0,
+                    count: null,
+                    cancellation: default(CancellationToken));
             }
-            else
-            {
-                return WriteFileAsync(context.HttpContext, GetFileStream(fileInfo), range, rangeLength);
-            }
+
+            return WriteFileAsync(context.HttpContext, GetFileStream(fileInfo), range, rangeLength);
         }
 
         private IFileInfo GetFileInformation(VirtualFileResult result)
