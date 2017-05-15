@@ -37,7 +37,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return WriteFileAsync(context, result, range, rangeLength);
         }
 
-        private Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
+        private static Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
         {
             if (range != null && rangeLength == 0)
             {

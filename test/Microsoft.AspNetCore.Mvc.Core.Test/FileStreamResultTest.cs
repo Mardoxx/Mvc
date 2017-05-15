@@ -78,7 +78,7 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 4, "Hello", 5)]
         [InlineData(6, 10, "World", 5)]
-        [InlineData(null, 4, "Hello", 5)]
+        [InlineData(null, 5, "World", 5)]
         [InlineData(6, null, "World", 5)]
         public async Task WriteFileAsync_PreconditionStateShouldProcess_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
@@ -111,18 +111,12 @@ namespace Microsoft.AspNetCore.Mvc
             await result.ExecuteResultAsync(actionContext);
 
             // Assert
+            start = start ?? 11 - end;
+            end = start + contentLength - 1;
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            if (!start.HasValue)
-            {
-                start = 0;
-            }
-            if (!end.HasValue)
-            {
-                end = 10;
-            }
             var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, byteArray.Length);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);

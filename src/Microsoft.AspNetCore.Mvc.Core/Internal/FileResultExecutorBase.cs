@@ -37,7 +37,12 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected ILogger Logger { get; }
 
-        protected (RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(ActionContext context, FileResult result, long? fileLength, DateTimeOffset? lastModified = null, EntityTagHeaderValue etag = null)
+        protected (RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(
+            ActionContext context,
+            FileResult result, long?
+            fileLength, DateTimeOffset?
+            lastModified = null,
+            EntityTagHeaderValue etag = null)
         {
             SetContentType(context, result);
             SetContentDispositionHeader(context, result);
@@ -60,31 +65,27 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 httpResponseHeaders.ETag = etag;
             }
 
-            var preconditionState = GetPreconditionState(context, httpRequestHeaders, lastModified, etag);
-            var serveBody = true;
-            if (HttpMethods.IsHead(request.Method))
+            var serveBody = !HttpMethods.IsHead(request.Method);
+            if (HttpMethods.IsHead(request.Method) || HttpMethods.IsGet(request.Method))
             {
-                serveBody = false;
-            }
-
-            if (request.Headers.ContainsKey(HeaderNames.Range))
-            {
-                if (preconditionState == PreconditionState.Unspecified ||
-                    preconditionState == PreconditionState.ShouldProcess)
+                var preconditionState = GetPreconditionState(context, httpRequestHeaders, lastModified, etag);
+                if (request.Headers.ContainsKey(HeaderNames.Range) &&
+                    (preconditionState == PreconditionState.Unspecified ||
+                    preconditionState == PreconditionState.ShouldProcess))
                 {
                     return SetRangeHeaders(context, httpRequestHeaders, fileLength, lastModified, etag);
                 }
-            }
 
-            if (preconditionState == PreconditionState.NotModified)
-            {
-                serveBody = false;
-                response.StatusCode = StatusCodes.Status304NotModified;
-            }
-            else if (preconditionState == PreconditionState.PreconditionFailed)
-            {
-                serveBody = false;
-                response.StatusCode = StatusCodes.Status412PreconditionFailed;
+                if (preconditionState == PreconditionState.NotModified)
+                {
+                    serveBody = false;
+                    response.StatusCode = StatusCodes.Status304NotModified;
+                }
+                else if (preconditionState == PreconditionState.PreconditionFailed)
+                {
+                    serveBody = false;
+                    response.StatusCode = StatusCodes.Status412PreconditionFailed;
+                }
             }
 
             return (range: null, rangeLength: 0, serveBody: serveBody);
@@ -117,6 +118,28 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             response.Headers[HeaderNames.AcceptRanges] = AcceptRangeHeaderValue;
         }
 
+        private static PreconditionState GetEtagMatchState(
+            IList<EntityTagHeaderValue> etagHeader,
+            EntityTagHeaderValue etag,
+            PreconditionState matchFoundState,
+            PreconditionState matchNotFoundState)
+        {
+            if (etagHeader != null && etagHeader.Any())
+            {
+                var state = matchNotFoundState;
+                foreach (var entityTag in etagHeader)
+                {
+                    if (entityTag.Equals(EntityTagHeaderValue.Any) || entityTag.Compare(etag, useStrongComparison: true))
+                    {
+                        state = matchFoundState;
+                        break;
+                    }
+                }
+                return state;
+            }
+            return PreconditionState.Unspecified;
+        }
+
         // Internal for testing
         internal static PreconditionState GetPreconditionState(
             ActionContext context,
@@ -131,39 +154,31 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             // 14.24 If-Match
             var ifMatch = httpRequestHeaders.IfMatch;
-            if (ifMatch != null && ifMatch.Any())
+            if (etag != null)
             {
-                ifMatchState = PreconditionState.PreconditionFailed;
-                foreach (var entityTag in ifMatch)
-                {
-                    if (entityTag.Equals(EntityTagHeaderValue.Any) || entityTag.Compare(etag, useStrongComparison: true))
-                    {
-                        ifMatchState = PreconditionState.ShouldProcess;
-                        break;
-                    }
-                }
+                ifMatchState = GetEtagMatchState(
+                    etagHeader: ifMatch,
+                    etag: etag,
+                    matchFoundState: PreconditionState.ShouldProcess,
+                    matchNotFoundState: PreconditionState.PreconditionFailed);
             }
 
             // 14.26 If-None-Match
             var ifNoneMatch = httpRequestHeaders.IfNoneMatch;
-            if (ifNoneMatch != null && ifNoneMatch.Any())
+            if (etag != null)
             {
-                ifNoneMatchState = PreconditionState.ShouldProcess;
-                foreach (var entityTag in ifNoneMatch)
-                {
-                    if (entityTag.Equals(EntityTagHeaderValue.Any) || entityTag.Compare(etag, useStrongComparison: true))
-                    {
-                        ifNoneMatchState = PreconditionState.NotModified;
-                        break;
-                    }
-                }
+                ifNoneMatchState = GetEtagMatchState(
+                    etagHeader: ifNoneMatch,
+                    etag: etag,
+                    matchFoundState: PreconditionState.NotModified,
+                    matchNotFoundState: PreconditionState.ShouldProcess);
             }
 
             var now = DateTimeOffset.UtcNow;
 
             // 14.25 If-Modified-Since
             var ifModifiedSince = httpRequestHeaders.IfModifiedSince;
-            if (ifModifiedSince.HasValue && ifModifiedSince <= now)
+            if (lastModified.HasValue && ifModifiedSince.HasValue && ifModifiedSince <= now)
             {
                 var modified = ifModifiedSince < lastModified;
                 ifModifiedSinceState = modified ? PreconditionState.ShouldProcess : PreconditionState.NotModified;
@@ -171,7 +186,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             // 14.28 If-Unmodified-Since
             var ifUnmodifiedSince = httpRequestHeaders.IfUnmodifiedSince;
-            if (ifUnmodifiedSince.HasValue && ifUnmodifiedSince <= now)
+            if (lastModified.HasValue && ifUnmodifiedSince.HasValue && ifUnmodifiedSince <= now)
             {
                 var unmodified = ifUnmodifiedSince >= lastModified;
                 ifUnmodifiedSinceState = unmodified ? PreconditionState.ShouldProcess : PreconditionState.PreconditionFailed;
@@ -207,8 +222,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             // Checked for presence of Range header explicitly before calling this method.
             // Range may be null for parsing errors, multiple ranges and when the file length is missing.
             var range = fileLength.HasValue ? ParseRange(context, httpRequestHeaders, fileLength.Value, lastModified, etag) : null;
-            var rangeNotSatisfiable = range == null;
-            if (rangeNotSatisfiable)
+            if (range == null)
             {
                 // 14.16 Content-Range - A server sending a response with status code 416 (Requested range not satisfiable)
                 // SHOULD include a Content-Range field with a byte-range-resp-spec of "*". The instance-length specifies
@@ -255,15 +269,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
             if (range != null)
             {
-                var rangeValue = range.Single();
-                long? from = rangeValue.From ?? 0L;
-                long? to = rangeValue.To ?? fileLength;
-                var rangeItemHeaderValue = new RangeItemHeaderValue(from, to);
-                var ranges = new List<RangeItemHeaderValue>
-                {
-                    rangeItemHeaderValue,
-                };
-                var normalizedRanges = RangeHelper.NormalizeRanges(ranges, fileLength);
+                var normalizedRanges = RangeHelper.NormalizeRanges(range, fileLength);
                 if (normalizedRanges == null || normalizedRanges.Count == 0)
                 {
                     return null;

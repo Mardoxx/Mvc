@@ -55,7 +55,7 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 3, "File", 4)]
         [InlineData(8, 13, "Result", 6)]
-        [InlineData(null, 3, "File", 4)]
+        [InlineData(null, 5, "ts�", 5)]
         [InlineData(8, null, "ResultTestFile contents�", 26)]
         public async Task WriteFileAsync_WritesRangeRequested(long? start, long? end, string expectedString, long contentLength)
         {
@@ -74,12 +74,12 @@ namespace Microsoft.AspNetCore.Mvc
             await result.ExecuteResultAsync(actionContext);
 
             // Assert
+            start = start ?? 34 - end;
+            end = start + contentLength - 1;
             var httpResponse = actionContext.HttpContext.Response;
             httpResponse.Body.Seek(0, SeekOrigin.Begin);
             var streamReader = new StreamReader(httpResponse.Body);
             var body = streamReader.ReadToEndAsync().Result;
-            start = start ?? 0;
-            end = end ?? 33;
             var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 34);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
@@ -227,7 +227,7 @@ namespace Microsoft.AspNetCore.Mvc
         [Theory]
         [InlineData(0, 3, "File", 4)]
         [InlineData(8, 13, "Result", 6)]
-        [InlineData(null, 3, "File", 4)]
+        [InlineData(null, 3, "ts¡", 3)]
         [InlineData(8, null, "ResultTestFile contents¡", 26)]
         public async Task ExecuteResultAsync_CallsSendFileAsyncWithRequestedRange_IfIHttpSendFilePresent(long? start, long? end, string expectedString, long contentLength)
         {
@@ -249,13 +249,13 @@ namespace Microsoft.AspNetCore.Mvc
             await result.ExecuteResultAsync(actionContext);
 
             // Assert
+            start = start ?? 34 - end;
+            end = start + contentLength - 1;
             var httpResponse = actionContext.HttpContext.Response;
-            start = start ?? 0;
-            end = end ?? 33;
             Assert.Equal(Path.GetFullPath(Path.Combine("TestFiles", "FilePathResultTestFile.txt")), sendFile.Name);
             Assert.Equal(start, sendFile.Offset);
             Assert.Equal(contentLength, sendFile.Length);
-            Assert.Equal(CancellationToken.None, sendFile.Token);
+            Assert.Equal(CancellationToken.None, sendFile.Token);            
             var contentRange = new ContentRangeHeaderValue(start.Value, end.Value, 34);
             Assert.Equal(StatusCodes.Status206PartialContent, httpResponse.StatusCode);
             Assert.Equal("bytes", httpResponse.Headers[HeaderNames.AcceptRanges]);
