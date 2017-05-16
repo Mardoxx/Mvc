@@ -128,7 +128,9 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<CSharpCompiler>();
             services.TryAddSingleton<RazorReferenceManager>();
             // This caches compilation related details that are valid across the lifetime of the application.
+#pragma warning disable CS0618 // Type or member is obsolete
             services.TryAddSingleton<ICompilationService, DefaultRoslynCompilationService>();
+#pragma warning restore CS0618 // Type or member is obsolete
 
             services.TryAddEnumerable(
                 ServiceDescriptor.Transient<IConfigureOptions<MvcViewOptions>, MvcRazorMvcViewOptionsSetup>());

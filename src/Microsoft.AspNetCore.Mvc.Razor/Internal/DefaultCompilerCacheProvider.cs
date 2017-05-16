@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
+using Microsoft.AspNetCore.Razor.Language;
 
 namespace Microsoft.AspNetCore.Mvc.Razor.Internal
 {
@@ -16,13 +17,15 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         /// </summary>
         /// <param name="applicationPartManager">The <see cref="ApplicationPartManager" /></param>
         /// <param name="fileProviderAccessor">The <see cref="IRazorViewEngineFileProviderAccessor"/>.</param>
+        /// <param name="templateEngine">The <see cref="RazorTemplateEngine"/>.</param>
         public DefaultCompilerCacheProvider(
             ApplicationPartManager applicationPartManager,
-            IRazorViewEngineFileProviderAccessor fileProviderAccessor)
+            IRazorViewEngineFileProviderAccessor fileProviderAccessor,
+            RazorTemplateEngine templateEngine)
         {
             var feature = new ViewsFeature();
             applicationPartManager.PopulateFeature(feature);
-            Cache = new CompilerCache(fileProviderAccessor.FileProvider, feature.Views);
+            Cache = new CompilerCache(fileProviderAccessor.FileProvider, templateEngine, feature.Views);
         }
 
         /// <inheritdoc />

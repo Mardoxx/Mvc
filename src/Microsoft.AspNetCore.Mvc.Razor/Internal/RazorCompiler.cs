@@ -1,133 +1,133 @@
-﻿
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using Microsoft.AspNetCore.Diagnostics;
+using System.Reflection;
+using System.Runtime.Loader;
+using System.Text;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
 using Microsoft.AspNetCore.Razor.Language;
-using Microsoft.AspNetCore.Mvc.Razor.Extensions;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.Razor.Internal
 {
     public class RazorCompiler
     {
-        private readonly ICompilationService _compilationService;
         private readonly ICompilerCacheProvider _compilerCacheProvider;
         private readonly RazorTemplateEngine _templateEngine;
-        private readonly Func<string, CompilerCacheContext> _getCacheContext;
-        private readonly Func<CompilerCacheContext, CompilationResult> _getCompilationResultDelegate;
+        private readonly Func<string, CompilationResult> _getCompilationResult;
+        private readonly ILogger<RazorCompiler> _logger;
+        private readonly CSharpCompiler _compiler;
+        private readonly Action<RoslynCompilationContext> _compilationCallback;
 
         public RazorCompiler(
-            ICompilationService compilationService,
             ICompilerCacheProvider compilerCacheProvider,
-            RazorTemplateEngine templateEngine)
+            RazorTemplateEngine templateEngine,
+            CSharpCompiler compiler,
+            IOptions<RazorViewEngineOptions> optionsAccessor,
+            ILoggerFactory logger)
         {
-            _compilationService = compilationService;
             _compilerCacheProvider = compilerCacheProvider;
             _templateEngine = templateEngine;
-            _getCacheContext = GetCacheContext;
-            _getCompilationResultDelegate = GetCompilationResult;
+            _compiler = compiler;
+            _compilationCallback = optionsAccessor.Value.CompilationCallback;
+            _logger = logger.CreateLogger<RazorCompiler>();
+
+            _getCompilationResult = GetCompilationResult;
         }
 
         private ICompilerCache CompilerCache => _compilerCacheProvider.Cache;
 
         public CompilerCacheResult Compile(string relativePath)
         {
-            return CompilerCache.GetOrAdd(relativePath, _getCacheContext);
+            return CompilerCache.GetOrAdd(relativePath, _getCompilationResult);
         }
 
-        private CompilerCacheContext GetCacheContext(string path)
+        public CompilationResult GetCompilationResult(string relativePath)
         {
-            var item = _templateEngine.Project.GetItem(path);
-            var imports = _templateEngine.Project.FindHierarchicalItems(path, _templateEngine.Options.ImportsFileName);
-            return new CompilerCacheContext(item, imports, GetCompilationResult);
-        }
-
-        private CompilationResult GetCompilationResult(CompilerCacheContext cacheContext)
-        {
-            var projectItem = cacheContext.ProjectItem;
-            var codeDocument = _templateEngine.CreateCodeDocument(projectItem.Path);
+            var codeDocument = _templateEngine.CreateCodeDocument(relativePath);
             var cSharpDocument = _templateEngine.GenerateCode(codeDocument);
 
             CompilationResult compilationResult;
             if (cSharpDocument.Diagnostics.Count > 0)
             {
-                compilationResult = GetCompilationFailedResult(
+                compilationResult = CompilationFailedResultFactory.Create(
                     codeDocument,
                     cSharpDocument.Diagnostics);
             }
             else
             {
-                compilationResult = _compilationService.Compile(codeDocument, cSharpDocument);
+                compilationResult = Compile(codeDocument, cSharpDocument);
             }
 
             return compilationResult;
         }
 
-        internal CompilationResult GetCompilationFailedResult(
-            RazorCodeDocument codeDocument,
-            IEnumerable<RazorDiagnostic> diagnostics)
+        internal CompilationResult Compile(RazorCodeDocument codeDocument, RazorCSharpDocument cSharpDocument)
         {
-            // If a SourceLocation does not specify a file path, assume it is produced from parsing the current file.
-            var messageGroups = diagnostics.GroupBy(
-                razorError => razorError.Span.FilePath ?? codeDocument.Source.FileName,
-                StringComparer.Ordinal);
+            _logger.GeneratedCodeToAssemblyCompilationStart(codeDocument.Source.FileName);
 
-            var failures = new List<CompilationFailure>();
-            foreach (var group in messageGroups)
+            var startTimestamp = _logger.IsEnabled(LogLevel.Debug) ? Stopwatch.GetTimestamp() : 0;
+
+            var assemblyName = Path.GetRandomFileName();
+            var compilation = CreateCompilation(cSharpDocument.GeneratedCode, assemblyName);
+
+            using (var assemblyStream = new MemoryStream())
             {
-                var filePath = group.Key;
-                var fileContent = ReadContent(codeDocument, filePath);
-                var compilationFailure = new CompilationFailure(
-                    filePath,
-                    fileContent,
-                    compiledContent: string.Empty,
-                    messages: group.Select(parserError => CreateDiagnosticMessage(parserError, filePath)));
-                failures.Add(compilationFailure);
-            }
+                using (var pdbStream = new MemoryStream())
+                {
+                    var result = compilation.Emit(
+                        assemblyStream,
+                        pdbStream,
+                        options: _compiler.EmitOptions);
 
-            return new CompilationResult(failures);
+                    if (!result.Success)
+                    {
+                        return CompilationFailedResultFactory.Create(
+                            codeDocument,
+                            cSharpDocument.GeneratedCode,
+                            assemblyName,
+                            result.Diagnostics);
+                    }
+
+                    assemblyStream.Seek(0, SeekOrigin.Begin);
+                    pdbStream.Seek(0, SeekOrigin.Begin);
+
+                    var assembly = LoadAssembly(assemblyStream, pdbStream);
+                    var type = assembly.GetExportedTypes().FirstOrDefault(a => !a.IsNested);
+
+                    _logger.GeneratedCodeToAssemblyCompilationEnd(codeDocument.Source.FileName, startTimestamp);
+
+                    return new CompilationResult(type);
+                }
+            }
         }
 
-        private static string ReadContent(RazorCodeDocument codeDocument, string filePath)
+        private CSharpCompilation CreateCompilation(string compilationContent, string assemblyName)
         {
-            RazorSourceDocument sourceDocument = null;
-            if (string.IsNullOrEmpty(filePath) || string.Equals(codeDocument.Source.FileName, filePath, StringComparison.Ordinal))
-            {
-                sourceDocument = codeDocument.Source;
-            }
-            else
-            {
-                sourceDocument = codeDocument.Imports.FirstOrDefault(f => string.Equals(f.FileName, filePath, StringComparison.Ordinal));
-            }
+            var sourceText = SourceText.From(compilationContent, Encoding.UTF8);
+            var syntaxTree = _compiler.CreateSyntaxTree(sourceText).WithFilePath(assemblyName);
+            var compilation = _compiler
+                .CreateCompilation(assemblyName)
+                .AddSyntaxTrees(syntaxTree);
+            compilation = ExpressionRewriter.Rewrite(compilation);
 
-            if (sourceDocument != null)
-            {
-                var contentChars = new char[sourceDocument.Length];
-                sourceDocument.CopyTo(0, contentChars, 0, sourceDocument.Length);
-                return new string(contentChars);
-            }
-
-            return string.Empty;
+            var compilationContext = new RoslynCompilationContext(compilation);
+            _compilationCallback(compilationContext);
+            compilation = compilationContext.Compilation;
+            return compilation;
         }
 
-        private static DiagnosticMessage CreateDiagnosticMessage(
-            RazorDiagnostic razorDiagnostic,
-            string filePath)
+        public static Assembly LoadAssembly(MemoryStream assemblyStream, MemoryStream pdbStream)
         {
-            var sourceSpan = razorDiagnostic.Span;
-            var message = razorDiagnostic.GetMessage();
-            return new DiagnosticMessage(
-                message: message,
-                formattedMessage: razorDiagnostic.ToString(),
-                filePath: filePath,
-                startLine: sourceSpan.LineIndex + 1,
-                startColumn: sourceSpan.CharacterIndex,
-                endLine: sourceSpan.LineIndex + 1,
-                endColumn: sourceSpan.CharacterIndex + sourceSpan.Length);
+            var assembly = AssemblyLoadContext.Default.LoadFromStream(assemblyStream, pdbStream);
+            return assembly;
         }
     }
 }

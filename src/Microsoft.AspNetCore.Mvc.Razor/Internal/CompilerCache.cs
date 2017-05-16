@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
+using Microsoft.AspNetCore.Razor.Language;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.FileProviders;
 
@@ -19,6 +20,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
     public class CompilerCache : ICompilerCache
     {
         private readonly IFileProvider _fileProvider;
+        private readonly RazorTemplateEngine _templateEngine;
         private readonly IMemoryCache _cache;
         private readonly object _cacheLock = new object();
 
@@ -29,14 +31,22 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         /// Initializes a new instance of <see cref="CompilerCache"/>.
         /// </summary>
         /// <param name="fileProvider"><see cref="IFileProvider"/> used to locate Razor views.</param>
-        public CompilerCache(IFileProvider fileProvider)
+        /// <param name="templateEngine">The <see cref="RazorTemplateEngine"/>.</param>
+        public CompilerCache(IFileProvider fileProvider, RazorTemplateEngine templateEngine)
         {
             if (fileProvider == null)
             {
                 throw new ArgumentNullException(nameof(fileProvider));
             }
 
+            if (templateEngine == null)
+            {
+                throw new ArgumentNullException(nameof(templateEngine));
+            }
+
+
             _fileProvider = fileProvider;
+            _templateEngine = templateEngine;
             _cache = new MemoryCache(new MemoryCacheOptions());
         }
 
@@ -45,12 +55,14 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         /// specified by <paramref name="views"/>.
         /// </summary>
         /// <param name="fileProvider"><see cref="IFileProvider"/> used to locate Razor views.</param>
+        /// <param name="razorTemplateEngine">The <see cref="RazorTemplateEngine"/>.</param>
         /// <param name="views">A mapping of application relative paths of view to <see cref="Type"/>s that
         /// have already been compiled.</param>
         public CompilerCache(
             IFileProvider fileProvider,
+            RazorTemplateEngine razorTemplateEngine,
             IDictionary<string, Type> views)
-            : this(fileProvider)
+            : this(fileProvider, razorTemplateEngine)
         {
             if (views == null)
             {
@@ -67,27 +79,26 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         /// <inheritdoc />
         public CompilerCacheResult GetOrAdd(
             string relativePath,
-            Func<string, CompilerCacheContext> cacheContextFactory)
+            Func<string, CompilationResult> compile)
         {
             if (relativePath == null)
             {
                 throw new ArgumentNullException(nameof(relativePath));
             }
 
-            if (cacheContextFactory == null)
+            if (compile == null)
             {
-                throw new ArgumentNullException(nameof(cacheContextFactory));
+                throw new ArgumentNullException(nameof(compile));
             }
 
-            Task<CompilerCacheResult> cacheEntry;
             // Attempt to lookup the cache entry using the passed in path. This will succeed if the path is already
             // normalized and a cache entry exists.
-            if (!_cache.TryGetValue(relativePath, out cacheEntry))
+            if (!_cache.TryGetValue(relativePath, out Task<CompilerCacheResult> cacheEntry))
             {
                 var normalizedPath = GetNormalizedPath(relativePath);
                 if (!_cache.TryGetValue(normalizedPath, out cacheEntry))
                 {
-                    cacheEntry = CreateCacheEntry(normalizedPath, cacheContextFactory);
+                    cacheEntry = CreateCacheEntry(normalizedPath, compile);
                 }
             }
 
@@ -98,12 +109,11 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
 
         private Task<CompilerCacheResult> CreateCacheEntry(
             string normalizedPath,
-            Func<string, CompilerCacheContext> cacheContextFactory)
+            Func<string, CompilationResult> compile)
         {
             TaskCompletionSource<CompilerCacheResult> compilationTaskSource = null;
             MemoryCacheEntryOptions cacheEntryOptions;
             Task<CompilerCacheResult> cacheEntry;
-            CompilerCacheContext compilerCacheContext;
 
             // Safe races cannot be allowed when compiling Razor pages. To ensure only one compilation request succeeds
             // per file, we'll lock the creation of a cache entry. Creating the cache entry should be very quick. The
@@ -126,9 +136,9 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
 
                 cacheEntryOptions = new MemoryCacheEntryOptions();
 
-                compilerCacheContext = cacheContextFactory(normalizedPath);
-                cacheEntryOptions.ExpirationTokens.Add(_fileProvider.Watch(compilerCacheContext.ProjectItem.Path));
-                if (!compilerCacheContext.ProjectItem.Exists)
+                cacheEntryOptions.ExpirationTokens.Add(_fileProvider.Watch(normalizedPath));
+                var projectItem = _templateEngine.Project.GetItem(normalizedPath);
+                if (!projectItem.Exists)
                 {
                     cacheEntry = Task.FromResult(new CompilerCacheResult(normalizedPath, cacheEntryOptions.ExpirationTokens));
                 }
@@ -136,9 +146,9 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 {
                     // A file exists and needs to be compiled.
                     compilationTaskSource = new TaskCompletionSource<CompilerCacheResult>();
-                    foreach (var projectItem in compilerCacheContext.AdditionalCompilationItems)
+                    foreach (var importItem in _templateEngine.GetImportItems(projectItem))
                     {
-                        cacheEntryOptions.ExpirationTokens.Add(_fileProvider.Watch(projectItem.Path));
+                        cacheEntryOptions.ExpirationTokens.Add(_fileProvider.Watch(importItem.Path));
                     }
                     cacheEntry = compilationTaskSource.Task;
                 }
@@ -153,7 +163,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
 
                 try
                 {
-                    var compilationResult = compilerCacheContext.Compile(compilerCacheContext);
+                    var compilationResult = compile(normalizedPath);
                     compilationResult.EnsureSuccessful();
                     compilationTaskSource.SetResult(
                         new CompilerCacheResult(normalizedPath, compilationResult, cacheEntryOptions.ExpirationTokens));
@@ -175,8 +185,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 return relativePath;
             }
 
-            string normalizedPath;
-            if (!_normalizedPathLookup.TryGetValue(relativePath, out normalizedPath))
+            if (!_normalizedPathLookup.TryGetValue(relativePath, out var normalizedPath))
             {
                 var builder = new StringBuilder(relativePath);
                 builder.Replace('\\', '/');
