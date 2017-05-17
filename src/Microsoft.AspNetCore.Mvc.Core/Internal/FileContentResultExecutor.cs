@@ -18,7 +18,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         public virtual Task ExecuteAsync(ActionContext context, FileContentResult result)
         {
-        if (context == null)
+            if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
@@ -27,7 +27,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 throw new ArgumentNullException(nameof(result));
             }
-var (range, rangeLength, serveBody) = SetHeadersAndLog(
+
+            var (range, rangeLength, serveBody) = SetHeadersAndLog(
                 context,
                 result,
                 result.FileContents.Length,
@@ -41,9 +42,8 @@ var (range, rangeLength, serveBody) = SetHeadersAndLog(
 
             return WriteFileAsync(context, result, range, rangeLength);
         }
-            }
 
-protected virtual Task WriteFileAsync(ActionContext context, FileContentResult result)
+        protected virtual Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue range, long rangeLength)
         {
             if (context == null)
             {
@@ -54,10 +54,12 @@ protected virtual Task WriteFileAsync(ActionContext context, FileContentResult r
             {
                 throw new ArgumentNullException(nameof(result));
             }
-if (range != null && rangeLength == 0)
+
+            if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;
             }
+
             var response = context.HttpContext.Response;
             var outputStream = response.Body;
             var fileContentsStream = new MemoryStream(result.FileContents);

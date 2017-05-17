@@ -30,7 +30,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 throw new ArgumentNullException(nameof(result));
             }
-var fileInfo = GetFileInfo(result.FileName);
+
+            var fileInfo = GetFileInfo(result.FileName);
             if (!fileInfo.Exists)
             {
                 throw new FileNotFoundException(
@@ -44,6 +45,7 @@ var fileInfo = GetFileInfo(result.FileName);
                 fileInfo.Length,
                 lastModified,
                 result.EntityTag);
+
             if (serveBody)
             {
                 return WriteFileAsync(context, result, range, rangeLength);
@@ -52,9 +54,9 @@ var fileInfo = GetFileInfo(result.FileName);
             return Task.CompletedTask;
         }
 
-        private virtual Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
+        protected virtual Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
         {
-        if (context == null)
+            if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
@@ -63,7 +65,7 @@ var fileInfo = GetFileInfo(result.FileName);
             {
                 throw new ArgumentNullException(nameof(result));
             }
-            
+
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;
@@ -74,6 +76,7 @@ var fileInfo = GetFileInfo(result.FileName);
             {
                 throw new NotSupportedException(Resources.FormatFileResult_PathNotRooted(result.FileName));
             }
+
             var sendFile = response.HttpContext.Features.Get<IHttpSendFileFeature>();
             if (sendFile != null)
             {

@@ -37,12 +37,13 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected ILogger Logger { get; }
 
-        protected virtual(RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(
+        protected virtual (RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(
             ActionContext context,
             FileResult result, long?
             fileLength, DateTimeOffset?
             lastModified = null,
             EntityTagHeaderValue etag = null)
+        {
             if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
@@ -143,8 +144,10 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                         break;
                     }
                 }
+
                 return state;
             }
+
             return PreconditionState.Unspecified;
         }
 
@@ -214,6 +217,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                     max = states[i];
                 }
             }
+
             return max;
         }
 
@@ -240,6 +244,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 {
                     httpResponseHeaders.ContentRange = new ContentRangeHeaderValue(fileLength.Value);
                 }
+
                 return (range: null, rangeLength: 0, serveBody: false);
             }
 

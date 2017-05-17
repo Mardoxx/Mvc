@@ -27,7 +27,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 throw new ArgumentNullException(nameof(result));
             }
 
-long? fileLength = null;
+            long? fileLength = null;
             if (result.FileStream.CanSeek)
             {
                 fileLength = result.FileStream.Length;
@@ -45,13 +45,12 @@ long? fileLength = null;
                 return Task.CompletedTask;
             }
 
-
             return WriteFileAsync(context, result, range, rangeLength);
         }
 
-        private virtual static Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
+        protected virtual Task WriteFileAsync(ActionContext context, FileStreamResult result, RangeItemHeaderValue range, long rangeLength)
         {
-        if (context == null)
+            if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
@@ -60,7 +59,7 @@ long? fileLength = null;
             {
                 throw new ArgumentNullException(nameof(result));
             }
-            
+
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;

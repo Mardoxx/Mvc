@@ -40,7 +40,8 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             {
                 throw new ArgumentNullException(nameof(result));
             }
-var fileInfo = GetFileInformation(result);
+
+            var fileInfo = GetFileInformation(result);
             if (!fileInfo.Exists)
             {
                 throw new FileNotFoundException(
@@ -54,18 +55,18 @@ var fileInfo = GetFileInformation(result);
                 fileInfo.Length,
                 lastModified,
                 result.EntityTag);
+
             if (serveBody)
             {
                 return WriteFileAsync(context, result, fileInfo, range, rangeLength);
             }
 
-
             return Task.CompletedTask;
         }
 
-        private virtual Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
+        protected virtual Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
         {
-        if (context == null)
+            if (context == null)
             {
                 throw new ArgumentNullException(nameof(context));
             }
@@ -74,7 +75,7 @@ var fileInfo = GetFileInformation(result);
             {
                 throw new ArgumentNullException(nameof(result));
             }
-            
+
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;
@@ -126,7 +127,6 @@ var fileInfo = GetFileInformation(result);
             }
 
             result.FileProvider = _hostingEnvironment.WebRootFileProvider;
-
             return result.FileProvider;
         }
 
