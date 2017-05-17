@@ -128,9 +128,6 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddSingleton<CSharpCompiler>();
             services.TryAddSingleton<RazorReferenceManager>();
             // This caches compilation related details that are valid across the lifetime of the application.
-#pragma warning disable CS0618 // Type or member is obsolete
-            services.TryAddSingleton<ICompilationService, DefaultRoslynCompilationService>();
-#pragma warning restore CS0618 // Type or member is obsolete
 
             services.TryAddEnumerable(
                 ServiceDescriptor.Transient<IConfigureOptions<MvcViewOptions>, MvcRazorMvcViewOptionsSetup>());
@@ -149,9 +146,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 DefaultRazorViewEngineFileProviderAccessor>();
 
             services.TryAddSingleton<IRazorViewEngine, RazorViewEngine>();
-
-            // Caches compilation artifacts across the lifetime of the application.
-            services.TryAddSingleton<ICompilerCacheProvider, DefaultCompilerCacheProvider>();
+            services.TryAddSingleton<IViewCompilerProvider, RazorViewCompilerProvider>();
 
             // In the default scenario the following services are singleton by virtue of being initialized as part of
             // creating the singleton RazorViewEngine instance.
@@ -162,7 +157,7 @@ namespace Microsoft.Extensions.DependencyInjection
             //
             services.TryAddSingleton<RazorProject, FileProviderRazorProject>();
             services.TryAddSingleton<RazorTemplateEngine, MvcRazorTemplateEngine>();
-            services.TryAddSingleton<RazorCompiler>();
+            services.TryAddSingleton<RazorViewCompiler>();
             services.TryAddSingleton<LazyMetadataReferenceFeature>();
 
             services.TryAddSingleton<RazorEngine>(s =>

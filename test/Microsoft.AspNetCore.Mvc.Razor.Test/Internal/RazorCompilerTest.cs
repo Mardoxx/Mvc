@@ -24,7 +24,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
             var razorProject = new FileProviderRazorProject(fileProvider);
 
             var templateEngine = new MvcRazorTemplateEngine(razorEngine, razorProject);
-            var compiler = new RazorCompiler(
+            var compiler = new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 GetCompilerCacheProvider(fileProvider),
                 templateEngine);
@@ -59,7 +59,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
             var razorProject = new FileProviderRazorProject(fileProvider);
 
             var templateEngine = new MvcRazorTemplateEngine(razorEngine, razorProject);
-            var compiler = new RazorCompiler(
+            var compiler = new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 GetCompilerCacheProvider(fileProvider),
                 templateEngine);
@@ -93,7 +93,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
             var razorProject = new FileProviderRazorProject(fileProvider);
 
             var templateEngine = new MvcRazorTemplateEngine(razorEngine, razorProject);
-            var compiler = new RazorCompiler(
+            var compiler = new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 GetCompilerCacheProvider(fileProvider),
                 templateEngine);
@@ -131,7 +131,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                     ImportsFileName = "_MyImports.cshtml",
                 }
             };
-            var compiler = new RazorCompiler(
+            var compiler = new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 GetCompilerCacheProvider(fileProvider),
                 templateEngine);
@@ -183,7 +183,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 GetRazorDiagnostic("message-4", new SourceLocation(viewImportsPath, 1, 3, 8), length: 4),
             };
             var fileProvider = new TestFileProvider();
-            var compiler = new RazorCompiler(
+            var compiler = new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 GetCompilerCacheProvider(fileProvider),
                 new MvcRazorTemplateEngine(RazorEngine.Create(), new FileProviderRazorProject(fileProvider)));

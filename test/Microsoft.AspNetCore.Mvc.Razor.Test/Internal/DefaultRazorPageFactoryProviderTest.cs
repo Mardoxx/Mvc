@@ -24,7 +24,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 Mock.Of<IChangeToken>(),
                 Mock.Of<IChangeToken>(),
             };
-            var compilerCache = new Mock<ICompilerCache>();
+            var compilerCache = new Mock<IViewCompiler>();
             compilerCache
                 .Setup(f => f.GetOrAdd(It.IsAny<string>(), It.IsAny<Func<string, CompilerCacheContext>>()))
                 .Returns(new CompilerCacheResult(path, expirationTokens));
@@ -49,7 +49,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 Mock.Of<IChangeToken>(),
                 Mock.Of<IChangeToken>(),
             };
-            var compilerCache = new Mock<ICompilerCache>();
+            var compilerCache = new Mock<IViewCompiler>();
             compilerCache
                 .Setup(f => f.GetOrAdd(It.IsAny<string>(), It.IsAny<Func<string, CompilerCacheContext>>()))
                 .Returns(new CompilerCacheResult(relativePath, new CompilationResult(typeof(TestRazorPage)), expirationTokens));
@@ -69,7 +69,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         {
             // Arrange
             var relativePath = "/file-exists";
-            var compilerCache = new Mock<ICompilerCache>();
+            var compilerCache = new Mock<IViewCompiler>();
             compilerCache
                 .Setup(f => f.GetOrAdd(It.IsAny<string>(), It.IsAny<Func<string, CompilerCacheContext>>()))
                 .Returns(new CompilerCacheResult(relativePath, new CompilationResult(typeof(TestRazorPage)), new IChangeToken[0]));
@@ -85,14 +85,14 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
             Assert.Equal("/file-exists", actual.Path);
         }
 
-        private RazorCompiler CreateCompiler(ICompilerCache cache)
+        private RazorViewCompiler CreateCompiler(IViewCompiler cache)
         {
             var compilerCacheProvider = new Mock<ICompilerCacheProvider>();
             compilerCacheProvider
                 .SetupGet(c => c.Cache)
                 .Returns(cache);
 
-            return new RazorCompiler(
+            return new RazorViewCompiler(
                 Mock.Of<ICompilationService>(),
                 compilerCacheProvider.Object,
                 new MvcRazorTemplateEngine(RazorEngine.Create(), new FileProviderRazorProject(new TestFileProvider())));

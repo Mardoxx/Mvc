@@ -40,7 +40,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Compilation
 
                 foreach (var item in viewContainer.ViewInfos)
                 {
-                    feature.Views[item.Path] = item.Type;
+                    feature.ViewMetadata.Add(new RazorViewAttribute(item.Path, item.Type));
                 }
             }
         }

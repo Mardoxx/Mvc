@@ -27,7 +27,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Compilation
             applicationPartManager.PopulateFeature(feature);
 
             // Assert
-            Assert.Empty(feature.Views);
+            Assert.Empty(feature.ViewMetadata);
         }
 
         [Fact]
@@ -52,7 +52,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Compilation
             applicationPartManager.PopulateFeature(feature);
 
             // Assert
-            Assert.Collection(feature.Views.OrderBy(f => f.Key, StringComparer.Ordinal),
+            Assert.Collection(feature.ViewMetadata.OrderBy(f => f.Key, StringComparer.Ordinal),
                 view =>
                 {
                     Assert.Equal("/Areas/Admin/Views/About.cshtml", view.Key);
@@ -87,7 +87,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Compilation
             applicationPartManager.PopulateFeature(feature);
 
             // Assert
-            Assert.Empty(feature.Views);
+            Assert.Empty(feature.ViewMetadata);
         }
 
         [Fact]
@@ -104,7 +104,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Compilation
             applicationPartManager.PopulateFeature(feature);
 
             // Assert
-            Assert.Empty(feature.Views);
+            Assert.Empty(feature.ViewMetadata);
         }
 
         private class TestableViewsFeatureProvider : ViewsFeatureProvider

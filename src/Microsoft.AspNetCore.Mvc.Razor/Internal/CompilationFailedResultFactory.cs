@@ -21,7 +21,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
         // or an assembly reference?)
         private const string CS0246 = nameof(CS0246);
 
-        public static CompilationResult Create(
+        public static CompilationFailedException Create(
             RazorCodeDocument codeDocument,
             IEnumerable<RazorDiagnostic> diagnostics)
         {
@@ -43,10 +43,10 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 failures.Add(compilationFailure);
             }
 
-            return new CompilationResult(failures);
+            return new CompilationFailedException(failures);
         }
 
-        public static CompilationResult Create(
+        public static CompilationFailedException Create(
             RazorCodeDocument codeDocument,
             string compilationContent,
             string assemblyName,
@@ -92,7 +92,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Internal
                 failures.Add(compilationFailure);
             }
 
-            return new CompilationResult(failures);
+            return new CompilationFailedException(failures);
         }
 
         private static string ReadContent(RazorCodeDocument codeDocument, string filePath)

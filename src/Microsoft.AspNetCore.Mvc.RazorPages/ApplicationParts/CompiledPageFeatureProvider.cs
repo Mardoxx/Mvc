@@ -32,22 +32,23 @@ namespace Microsoft.AspNetCore.Mvc.ApplicationParts
         {
             foreach (var item in GetCompiledPageInfo(parts))
             {
-                feature.Views.Add(item.Path, item.CompiledType);
+                feature.ViewMetadata.Add(item);
             }
         }
 
         /// <summary>
-        /// Gets the sequence of <see cref="CompiledPageInfo"/> from <paramref name="parts"/>.
+        /// Gets the sequence of <see cref="RazorPageAttribute"/> from <paramref name="parts"/>.
         /// </summary>
         /// <param name="parts">The <see cref="ApplicationPart"/>s</param>
-        /// <returns>The sequence of <see cref="CompiledPageInfo"/>.</returns>
-        public static IEnumerable<CompiledPageInfo> GetCompiledPageInfo(IEnumerable<ApplicationPart> parts)
+        /// <returns>The sequence of <see cref="RazorPageAttribute"/>.</returns>
+        public static IEnumerable<RazorPageAttribute> GetCompiledPageInfo(IEnumerable<ApplicationPart> parts)
         {
             return parts.OfType<AssemblyPart>()
                 .Select(part => CompiledViewManfiest.GetManifestType(part, FullyQualifiedManifestTypeName))
                 .Where(type => type != null)
                 .Select(type => (CompiledPageManifest)Activator.CreateInstance(type))
-                .SelectMany(manifest => manifest.CompiledPages);
+                .SelectMany(manifest => manifest.CompiledPages)
+                .Select(page => new RazorPageAttribute(page.Path, page.CompiledType, page.CompiledType.GetProperty("Model")?.PropertyType, page.RoutePrefix));
         }
     }
 }

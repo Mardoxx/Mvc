@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
+using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
@@ -66,7 +67,7 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
 
                     var viewEnginePath = GetViewEnginePath(rootDirectory, page.Path);
                     var model = new PageApplicationModel(page.Path, viewEnginePath);
-                    PageSelectorModel.PopulateDefaults(model, page.RoutePrefix);
+                    PageSelectorModel.PopulateDefaults(model, page.RouteTemplate);
 
                     cachedApplicationModels.Add(model);
                 }
@@ -75,7 +76,7 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
             }
         }
 
-        protected virtual IEnumerable<CompiledPageInfo> GetCompiledPages()
+        protected virtual IEnumerable<RazorPageAttribute> GetCompiledPages()
             => CompiledPageFeatureProvider.GetCompiledPageInfo(_applicationManager.ApplicationParts);
 
         private string GetViewEnginePath(string rootDirectory, string path)
