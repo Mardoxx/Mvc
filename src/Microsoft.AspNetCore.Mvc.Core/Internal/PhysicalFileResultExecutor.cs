@@ -19,9 +19,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         {
         }
 
-        public Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
+        public virtual Task ExecuteAsync(ActionContext context, PhysicalFileResult result)
         {
-            var fileInfo = GetFileInfo(result.FileName);
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+var fileInfo = GetFileInfo(result.FileName);
             if (!fileInfo.Exists)
             {
                 throw new FileNotFoundException(
@@ -43,8 +52,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             return Task.CompletedTask;
         }
 
-        private Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
+        private virtual Task WriteFileAsync(ActionContext context, PhysicalFileResult result, RangeItemHeaderValue range, long rangeLength)
         {
+        if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+            
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;

@@ -29,9 +29,18 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             _hostingEnvironment = hostingEnvironment;
         }
 
-        public Task ExecuteAsync(ActionContext context, VirtualFileResult result)
+        public virtual Task ExecuteAsync(ActionContext context, VirtualFileResult result)
         {
-            var fileInfo = GetFileInformation(result);
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+var fileInfo = GetFileInformation(result);
             if (!fileInfo.Exists)
             {
                 throw new FileNotFoundException(
@@ -50,11 +59,22 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                 return WriteFileAsync(context, result, fileInfo, range, rangeLength);
             }
 
+
             return Task.CompletedTask;
         }
 
-        private Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
+        private virtual Task WriteFileAsync(ActionContext context, VirtualFileResult result, IFileInfo fileInfo, RangeItemHeaderValue range, long rangeLength)
         {
+        if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+            
             if (range != null && rangeLength == 0)
             {
                 return Task.CompletedTask;

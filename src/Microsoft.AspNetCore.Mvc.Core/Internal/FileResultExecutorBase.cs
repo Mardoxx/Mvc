@@ -37,13 +37,21 @@ namespace Microsoft.AspNetCore.Mvc.Internal
 
         protected ILogger Logger { get; }
 
-        protected (RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(
+        protected virtual(RangeItemHeaderValue range, long rangeLength, bool serveBody) SetHeadersAndLog(
             ActionContext context,
             FileResult result, long?
             fileLength, DateTimeOffset?
             lastModified = null,
             EntityTagHeaderValue etag = null)
-        {
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
             SetContentType(context, result);
             SetContentDispositionHeader(context, result);
             Logger.FileResultExecuting(result.FileDownloadName);
